@@ -119,14 +119,20 @@ samtools view mysequences.bam | head
 
 ```{r echo=FALSE,cache=TRUE}
 suppressPackageStartupMessages(library(GenomicAlignments))
-mybam <- "HG00096.chr22.bam"
+mybam <- "paired.bam"
 dupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = TRUE)))
-nodupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = FALSE)))
+#nodupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = FALSE)))
 suppressPackageStartupMessages(library(ggbio))
-gr1 <- GRanges("22",IRanges(16448767,16448866))
+tb <- table(start(dupReads))
+maxstart <- as.numeric(names(tb)[which.max(tb)])
+ends <- table(end(dupReads)[start(dupReads)==maxstart])
+              
+maxend <- as.numeric(names(which.max(ends)))
+
+gr1 <- GRanges(seqnames(dupReads)[match(maxstart,start(dupReads))], IRanges(maxstart,maxend))
 gr1 <- flank(gr1, 10,both=TRUE)
 dupReads <- dupReads[dupReads %over% gr1]
-pcrDuplicate <- start(dupReads)==16448767 & end(dupReads) == 16448866
+pcrDuplicate <- start(dupReads)==maxstart & end(dupReads) == maxend
 mcols(dupReads)$pcrDuplicate <- pcrDuplicate
 autoplot(dupReads,aes(fill=pcrDuplicate)) + scale_fill_manual(values = c("black","red"))
 ```
@@ -149,7 +155,7 @@ autoplot(dupReads,aes(fill=pcrDuplicate)) + scale_fill_manual(values = c("black"
 
 ```{r echo=FALSE,cache=TRUE}
 suppressPackageStartupMessages(library(GenomicAlignments))
-mybam <- "HG00096.chr22.bam"
+mybam <- "paired.bam"
 bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag")))
 flags <- mcols(bam.extra)$flag
 flagMat <- bamFlagAsBitMatrix(flags)
@@ -184,6 +190,376 @@ $ samtools flagstat NA19914.chr22.bam
 4794 + 0 with mate mapped to a different chr (mapQ>=5)
 
 ```
+
+# Processing with R and Bioconductor
+
+To understand how to process aligned reads with Bioconductor, we need to introduce a key data-type.
+
+## Core data-type 1: Genome Intervals
+
+- A Genome is typically represented as linear sequence
+- Ranges are an ordered set of consecutive integers defined by a start and end position
+    + start $\le$ end
+- Ranges are a common scaffold for many genomic analyses
+- Ranges can be associated with genomic information (e.g. gene name) or data derived from analysis (e.g. counts)
+- The `IRanges` package in Bioconductor allows us to work with intervals
+    + one of the aims of Bioconductor is to encourage core object-types and functions
+    + `IRanges` is an example of this
+
+## IRanges is crucial for many packages
+
+Just some of the packages that *depend* on [IRanges](http://bioconductor.org/packages/release/bioc/html/IRanges.html)
+
+![iranges-depends](images/iranges-depends.png)
+
+## IRanges paper
+
+![bioc paper](images/ranges-paper.png)
+
+## Example
+
+Suppose we want to capture information on the following intervals
+
+```{r echo=FALSE,message=FALSE}
+library(ggbio)
+ir <- IRanges(start = c(7,9,12,14,22:24), 
+              end=c(15,11,13,18,26,27,28))
+pl <- autoplot(ir,fill=brewer.pal(n=length(ir),"Set1"))+ geom_vline(x=seq(1,40,by=1),lty=2)
+library(gridExtra)
+pl
+```
+
+## Creating the object
+
+- The `IRanges` function from the `IRanges` package is used to *construct* a new object
+    + think `data.frame`, `vector` or `matrix` 
+    + it's structure is quite unlike anything we've seen before
+    
+```{r}
+library(IRanges)
+ir <- IRanges(
+start = c(7,9,12,14,22:24), 
+end=c(15,11,13,18,26,27,28))
+str(ir)
+```
+
+## Display the object
+
+- Typing the name of the object will print a summary of the object to the screen
+    + useful compared to display methods for data frames, which print the whole object
+- the square brackets `[]` should give a hint about how to access the data...
+
+```{r}
+ir
+```
+
+## Adding metadata
+
+We can give our ranges names
+```{r}
+ir <- IRanges(
+start = c(7,9,12,14,22:24), 
+end=c(15,11,13,18,26,27,28),names=LETTERS[1:7])
+ir
+```
+
+
+## Ranges as vectors
+- `IRanges` can be treated as if they were *vectors*
+    + no new rules to learn
+        + if we can subset vectors, we can subset ranges
+    + vector operations are efficient
+    + Remember, square brackets `[` to subset
+    + Inside the brackets, put a numeric vector to specify the `indices` that you want values for
+        + e.g. get the first two intervals in the object using the `:` shortcut
+
+```{r}
+ir[1:2]
+ir[c(2,4,6)]
+```
+
+## Accessing the object
+- If we want to extract the properties of the object, the package authors have provided some useful functions
+    + we call these *accessor* functions
+    + We don't need to know the details of how the objects and implemented to access the data
+    + the authors are free to change the implementation at any time
+        + we shouldn't notice the difference
+    + the result is a vector with the same length as the number of intervals
+        
+```{r}
+start(ir)
+end(ir)
+width(ir)
+```
+
+## More-complex subsetting
+- Recall that '*logical*' vectors can be used in subsetting
+    + i.e. `TRUE` or `FALSE`
+- Such a vector can be derived using a comparison operator
+    + `<`, `>`, `==`
+
+```{r}
+width(ir) == 5
+ir[width(ir)==5]
+```
+
+
+## More-complex subsetting
+
+- Multiple logical vectors can be combined using `&` (and), `|` (or)
+    + eg intervals that start after 10, **and** before 27
+    
+```{r}
+ir[end(ir) < 27]
+ir[start(ir) > 10 & end(ir) < 27]
+
+```
+
+
+# Manipulating Ranges
+
+## Lots of common use-cases are implemented
+![operations](images/ranges-fns.png)
+
+
+## Shifting
+e.g. sliding windows
+
+```{r}
+ir
+shift(ir, 5)
+```
+
+## Shifting
+
+
+```{r echo=FALSE}
+p2 <- autoplot(shift(ir,5),fill=brewer.pal(n=length(ir),"Set1")) +geom_vline(x=seq(1,40,by=1),lty=2)
+tracks(pl, p2)
+```
+
+## Shifting
+
+Size of shift doesn’t need to be constant
+
+```{r}
+ir
+shift(ir, 7:1)
+```
+
+## Shifting
+
+```{r echo=FALSE}
+p2 <- autoplot(shift(ir,7:1),fill=brewer.pal(n=length(ir),"Set1"))+geom_vline(x=seq(1,40,by=1),lty=2)
+tracks(pl, p2)
+```
+
+## Resize
+
+e.g. trimming reads
+
+```{r}
+ir
+resize(ir,3)
+```
+## Resize
+
+```{r echo=FALSE}
+p2 <- autoplot(resize(ir,3),fill=brewer.pal(n=length(ir),"Set1")) + geom_vline(x=seq(1,40,by=1),lty=2)
+tracks(pl, p2)
+```
+
+
+
+## Coverage
+
+- Often we want to know how much sequencing we have at particular positions
+    + i.e. depth of coverage
+
+`coverage` returns a *Run Length Encoding* - an efficient representation of repeated values
+
+```{r}
+cvg <- coverage(ir)
+cvg
+as.vector(cvg)
+
+```
+
+## Coverage Results
+
+```{r echo=FALSE}
+p2 <- autoplot(coverage(ir),binwidth=1) + ggtitle("Coverage")
+tracks(pl,p2)
+```
+
+## Overlapping
+e.g. counting
+- The terminology of overlapping defines a *query* and a *subject*
+![overlaps](images/ranges-paper-overlaps.png)
+
+## Overlaps
+
+- lets start be defining a new set of ranges
+
+```{r}
+ir3 <- IRanges(start = c(1, 14, 27), end = c(13,
+    18, 30),names=c("X","Y","Z"))
+ir3
+
+```
+## Overlaps
+
+```{r echo=FALSE}
+p2 <- autoplot(ir3)
+tracks(pl,p2)
+
+```
+
+
+## Overlaps
+
+
+- The `findOverlaps` function is used for overlap
+    + the output isn't immediately obvious
+    + length of output is the number of *hits*
+        + each hit is defined by a subject and query index
+    + require accessor functions to get the data; `queryHits` and `subjectHits`
+    
+```{r}
+query <- ir
+subject <- ir3
+ov <- findOverlaps(query, subject)
+ov
+```
+
+## queryHits and subjectHits
+
+- `queryHits` returns *indices* from the ***query***
+    + each query may overlap with many in the subject
+```{r}
+queryHits(ov)
+```
+- `subjectHits` returns *indices* from the ***subject***
+    + each subject range may overlap with many in the query    
+```{r}
+subjectHits(ov)
+```
+- e.g. `r queryHits(ov)[1]` from the query overlaps with `r subjectHits(ov)[1]` from the subject
+
+##Overlap example - First hit
+    
+    
+```{r}
+query[queryHits(ov)[1]]
+subject[subjectHits(ov)[1]]
+```
+
+
+```{r echo=FALSE, fig.height=3}
+fll <- rep("white", length(ir))
+fll[queryHits(ov)[1]] <- "black"
+
+qplot <- autoplot(ir,fill=fll)+geom_vline(x=seq(1,40,by=1),lty=2) + ggtitle("Query")
+
+fll <- rep("white", length(ir3))
+fll[subjectHits(ov)[1]] <- "black"
+
+subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2) + ggtitle("Subject")
+tracks(qplot, subplot,main="Query (above) and Subject (below)")  
+```
+
+## Overlap example - Second hit
+
+```{r}
+query[queryHits(ov)[2]]
+subject[subjectHits(ov)[2]]
+```
+
+
+```{r echo=FALSE,fig.height=3}
+fll <- rep("white", length(ir))
+fll[queryHits(ov)[2]] <- "black"
+
+qplot <- autoplot(ir,fill=fll)+ geom_vline(x=seq(1,40,by=1),lty=2,main="Query") + ggtitle("Query")
+
+fll <- rep("white", length(ir3))
+fll[subjectHits(ov)[2]] <- "black"
+
+subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2,main="Subject") + ggtitle("Subject")
+tracks(qplot, subplot,main="Query (above) and Subject (below)")  
+```
+
+## Overlap example - Third hit
+
+```{r}
+query[queryHits(ov)[3]]
+subject[subjectHits(ov)[3]]
+```
+
+
+```{r echo=FALSE,fig.height=3}
+fll <- rep("white", length(ir))
+fll[queryHits(ov)[3]] <- "black"
+
+qplot <- autoplot(ir,fill=fll)+ geom_vline(x=seq(1,40,by=1),lty=2,main="Query") + ggtitle("Query")
+
+fll <- rep("white", length(ir3))
+fll[subjectHits(ov)[3]] <- "black"
+
+subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2,main="Subject") + ggtitle("Subject")
+tracks(qplot, subplot,main="Query (above) and Subject (below)")  
+```
+
+
+## Counting
+
+- If we just wanted to count the number of overlaps for each range, we can use `countOverlaps`
+    + result is a vector with length the number of intervals in query
+    + e.g. interval 1 in the query overlaps with `r countOverlaps(query,subject)[1]` intervals in the subject
+    
+```{r}
+countOverlaps(query,subject)
+```
+- Order of arguments is important
+```{r}
+countOverlaps(subject,query)
+```
+
+
+
+## Intersection
+
+- Rather than counting, we might want to know which positions are in common
+```{r}
+intersect(ir,ir3)
+
+```
+
+```{r echo=FALSE}
+pl2 <- autoplot(ir3)
+p2 <- autoplot(intersect(ir,ir3))
+tracks(pl,pl2,p2)
+
+```
+
+## Subtraction
+
+- Or which positions are missing
+
+```{r}
+setdiff(ir,ir3)
+
+```
+
+```{r echo=FALSE}
+p2 <- autoplot(setdiff(ir,ir3))
+tracks(pl,pl2,p2)
+
+```
+
+
+
+
 
 
 ```{r}
