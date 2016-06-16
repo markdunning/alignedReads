@@ -5,20 +5,19 @@ date: "10 June 2016"
 output: html_document
 ---
 
-## <a name="align"></a> Alignment
+# Outline
 
-- Locating where each generated sequence came from in the genome
-- Outside the scope of this course
-- *Usually* perfomed automatically by a sequencing service
-- For most of what follows in the course, we will assume alignment has been performed and we are dealing with aligned data
-    + Popular aligners
-    + bwa http://bio-bwa.sourceforge.net/
-    + bowtie http://bowtie-bio.sourceforge.net/index.shtml
-    + novoalign http://www.novocraft.com/products/novoalign/
-    + stampy http://www.well.ox.ac.uk/project-stampy
-    + many, many more.....
+- How aligned reads are represented
+- [Visualising aligned reads in IGV](#igv)
+- [Looking at aligned reads in R and Bioconductor](#bioc)
 
-## Aligned reads - sam
+# Understanding file formats for aligned reads
+
+Unlike most of Bioinfomatics, a *single standard* file format has emerged for aligned reads. Moreoever, this file format is consistent regardless of whether you have DNA-seq, RNA-seq, ChIP-seq... data. 
+
+
+
+## The sam file
 
 - **S**equence **A**lignment/**M**ap (sam) http://samtools.github.io/hts-specs/SAMv1.pdf
 - *Header* lines followed by tab-delimited lines
@@ -69,14 +68,7 @@ CC:Z:chr15      CP:i:102518319  XS:A:+  HI:i:0
     + Mapping quality
     + etc...
 
-## <a name="igv"></a> Viewing aligned reads in IGV
 
-- Once our bam files have been *indexed* we can view them in IGV
-- This is **highly recommended**
-- Check-out [our colleagues' course](http://mrccsc.github.io/IGV_course/) for more details
-
-![igv](images/igv_screenshot1.png)    
-    
 
 
 ## Aligned reads - bam
@@ -117,10 +109,11 @@ samtools view mysequences.bam | head
     + Chances of any two sequences aligning to the same position are *unlikely*
     + Caveat: obviously this depends on amount of the genome you are capturing
 
-```{r echo=FALSE,cache=TRUE}
+```{r echo=FALSE}
 suppressPackageStartupMessages(library(GenomicAlignments))
 mybam <- "paired.bam"
-dupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = TRUE)))
+gr <- GRanges("1",IRanges(1,536870912))
+dupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = TRUE),which=gr))
 #nodupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = FALSE)))
 suppressPackageStartupMessages(library(ggbio))
 tb <- table(start(dupReads))
@@ -137,10 +130,6 @@ mcols(dupReads)$pcrDuplicate <- pcrDuplicate
 autoplot(dupReads,aes(fill=pcrDuplicate)) + scale_fill_manual(values = c("black","red"))
 ```
 
-    
-
-## <a name="funwithflags"></a> Dr Mark Dunning presents 'Fun with Flags'
-
 ## Sam file flags
 
 - Represent useful QC information
@@ -149,14 +138,26 @@ autoplot(dupReads,aes(fill=pcrDuplicate)) + scale_fill_manual(values = c("black"
     + Read failed QC
     + Read is a PCR duplicate (see later)
 
+```{r echo=FALSE}
+bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=gr),use.names = TRUE)
+```
 
+
+```{}
+system("samtools view paired.bam | grep SRR081708.237649")
+```
+
+For instance, a particular read has a flag of 163
+```
+SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>	MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC
+```
 
 ## Derivation
 
-```{r echo=FALSE,cache=TRUE}
+```{r echo=FALSE}
 suppressPackageStartupMessages(library(GenomicAlignments))
 mybam <- "paired.bam"
-bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag")))
+
 flags <- mcols(bam.extra)$flag
 flagMat <- bamFlagAsBitMatrix(flags)
 df <- data.frame(ReadHasProperty = as.logical(flagMat[1,]),Binary=flagMat[1,] ,MultiplyBy=2^(0:10))
@@ -174,24 +175,31 @@ See also
 - Useful *command-line* tool as part of **samtools**
 
 ```
-$ samtools flagstat NA19914.chr22.bam
-2109857 + 0 in total (QC-passed reads + QC-failed reads)
-0 + 0 secondary
-0 + 0 supplimentary
-40096 + 0 duplicates
-2064356 + 0 mapped (97.84%:-nan%)
-2011540 + 0 paired in sequencing
-1005911 + 0 read1
-1005629 + 0 read2
-1903650 + 0 properly paired (94.64%:-nan%)
-1920538 + 0 with itself and mate mapped
-45501 + 0 singletons (2.26%:-nan%)
-5134 + 0 with mate mapped to a different chr
-4794 + 0 with mate mapped to a different chr (mapQ>=5)
-
+$ samtools flagstat paired.bam
+12581680 + 0 in total (QC-passed reads + QC-failed reads)
+177715 + 0 duplicates
+12581680 + 0 mapped (100.00%:-nan%)
+12581680 + 0 paired in sequencing
+6291126 + 0 read1
+6290554 + 0 read2
+12581680 + 0 properly paired (100.00%:-nan%)
+12581680 + 0 with itself and mate mapped
+0 + 0 singletons (0.00%:-nan%)
+0 + 0 with mate mapped to a different chr
+0 + 0 with mate mapped to a different chr (mapQ>=5)
 ```
 
-# Processing with R and Bioconductor
+
+# <a name="igv"></a> Viewing aligned reads in IGV
+
+- Once our bam files have been *indexed* we can view them in IGV
+- This is **highly recommended**
+- Check-out [our colleagues' course](http://mrccsc.github.io/IGV_course/) for more details
+
+![igv](images/igv_screenshot1.png)    
+    
+
+# <a name="bioc"></a> Processing with R and Bioconductor
 
 To understand how to process aligned reads with Bioconductor, we need to introduce a key data-type.
 
@@ -221,10 +229,11 @@ Just some of the packages that *depend* on [IRanges](http://bioconductor.org/pac
 Suppose we want to capture information on the following intervals
 
 ```{r echo=FALSE,message=FALSE}
+library(RColorBrewer)
 library(ggbio)
 ir <- IRanges(start = c(7,9,12,14,22:24), 
               end=c(15,11,13,18,26,27,28))
-pl <- autoplot(ir,fill=brewer.pal(n=length(ir),"Set1"))+ geom_vline(x=seq(1,40,by=1),lty=2)
+pl <- autoplot(ir,fill=brewer.pal(n=length(ir),"Set1"))+ geom_vline(xintercept = seq(1,40,by=1),lty=2)
 library(gridExtra)
 pl
 ```
@@ -334,7 +343,7 @@ shift(ir, 5)
 
 
 ```{r echo=FALSE}
-p2 <- autoplot(shift(ir,5),fill=brewer.pal(n=length(ir),"Set1")) +geom_vline(x=seq(1,40,by=1),lty=2)
+p2 <- autoplot(shift(ir,5),fill=brewer.pal(n=length(ir),"Set1")) +geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
@@ -350,7 +359,7 @@ shift(ir, 7:1)
 ## Shifting
 
 ```{r echo=FALSE}
-p2 <- autoplot(shift(ir,7:1),fill=brewer.pal(n=length(ir),"Set1"))+geom_vline(x=seq(1,40,by=1),lty=2)
+p2 <- autoplot(shift(ir,7:1),fill=brewer.pal(n=length(ir),"Set1"))+geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
@@ -365,7 +374,7 @@ resize(ir,3)
 ## Resize
 
 ```{r echo=FALSE}
-p2 <- autoplot(resize(ir,3),fill=brewer.pal(n=length(ir),"Set1")) + geom_vline(x=seq(1,40,by=1),lty=2)
+p2 <- autoplot(resize(ir,3),fill=brewer.pal(n=length(ir),"Set1")) + geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
@@ -459,12 +468,12 @@ subject[subjectHits(ov)[1]]
 fll <- rep("white", length(ir))
 fll[queryHits(ov)[1]] <- "black"
 
-qplot <- autoplot(ir,fill=fll)+geom_vline(x=seq(1,40,by=1),lty=2) + ggtitle("Query")
+qplot <- autoplot(ir,fill=fll)+geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Query")
 
 fll <- rep("white", length(ir3))
 fll[subjectHits(ov)[1]] <- "black"
 
-subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2) + ggtitle("Subject")
+subplot <- autoplot(ir3,fill=fll) +geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Subject")
 tracks(qplot, subplot,main="Query (above) and Subject (below)")  
 ```
 
@@ -480,12 +489,12 @@ subject[subjectHits(ov)[2]]
 fll <- rep("white", length(ir))
 fll[queryHits(ov)[2]] <- "black"
 
-qplot <- autoplot(ir,fill=fll)+ geom_vline(x=seq(1,40,by=1),lty=2,main="Query") + ggtitle("Query")
+qplot <- autoplot(ir,fill=fll)+ geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Query")
 
 fll <- rep("white", length(ir3))
 fll[subjectHits(ov)[2]] <- "black"
 
-subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2,main="Subject") + ggtitle("Subject")
+subplot <- autoplot(ir3,fill=fll) +geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Subject")
 tracks(qplot, subplot,main="Query (above) and Subject (below)")  
 ```
 
@@ -501,12 +510,12 @@ subject[subjectHits(ov)[3]]
 fll <- rep("white", length(ir))
 fll[queryHits(ov)[3]] <- "black"
 
-qplot <- autoplot(ir,fill=fll)+ geom_vline(x=seq(1,40,by=1),lty=2,main="Query") + ggtitle("Query")
+qplot <- autoplot(ir,fill=fll)+ geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Query")
 
 fll <- rep("white", length(ir3))
 fll[subjectHits(ov)[3]] <- "black"
 
-subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2,main="Subject") + ggtitle("Subject")
+subplot <- autoplot(ir3,fill=fll) +geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Subject")
 tracks(qplot, subplot,main="Query (above) and Subject (below)")  
 ```
 
