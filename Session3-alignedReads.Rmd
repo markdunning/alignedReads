@@ -214,15 +214,8 @@ To understand how to process aligned reads with Bioconductor, we need to introdu
     + one of the aims of Bioconductor is to encourage core object-types and functions
     + `IRanges` is an example of this
 
-## IRanges is crucial for many packages
+`IRanges` is crucial for many packages. The [landing page](http://bioconductor.org/packages/release/bioc/html/IRanges.html) for the package lists just how many packages depend on it. If you want to find-out more, or look at the technical details, check out the [PLoS Computational Biology paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003118).
 
-Just some of the packages that *depend* on [IRanges](http://bioconductor.org/packages/release/bioc/html/IRanges.html)
-
-![iranges-depends](images/iranges-depends.png)
-
-## IRanges paper
-
-![bioc paper](images/ranges-paper.png)
 
 ## Example
 
@@ -238,11 +231,9 @@ library(gridExtra)
 pl
 ```
 
-## Creating the object
-
 - The `IRanges` function from the `IRanges` package is used to *construct* a new object
     + think `data.frame`, `vector` or `matrix` 
-    + it's structure is quite unlike anything we've seen before
+    + it's structure is quite unlike anything we've seen so far
     
 ```{r}
 library(IRanges)
@@ -252,7 +243,6 @@ end=c(15,11,13,18,26,27,28))
 str(ir)
 ```
 
-## Display the object
 
 - Typing the name of the object will print a summary of the object to the screen
     + useful compared to display methods for data frames, which print the whole object
@@ -262,9 +252,8 @@ str(ir)
 ir
 ```
 
-## Adding metadata
 
-We can give our ranges names
+Additionally, we can give our ranges names
 ```{r}
 ir <- IRanges(
 start = c(7,9,12,14,22:24), 
@@ -273,8 +262,7 @@ ir
 ```
 
 
-## Ranges as vectors
-- `IRanges` can be treated as if they were *vectors*
+- So `IRanges` can be treated as if they were *vectors*
     + no new rules to learn
         + if we can subset vectors, we can subset ranges
     + vector operations are efficient
@@ -287,7 +275,7 @@ ir[1:2]
 ir[c(2,4,6)]
 ```
 
-## Accessing the object
+
 - If we want to extract the properties of the object, the package authors have provided some useful functions
     + we call these *accessor* functions
     + We don't need to know the details of how the objects and implemented to access the data
@@ -306,129 +294,132 @@ width(ir)
     + i.e. `TRUE` or `FALSE`
 - Such a vector can be derived using a comparison operator
     + `<`, `>`, `==`
-
-```{r}
-width(ir) == 5
-ir[width(ir)==5]
-```
-
-
-## More-complex subsetting
-
-- Multiple logical vectors can be combined using `&` (and), `|` (or)
-    + eg intervals that start after 10, **and** before 27
     
-```{r}
-ir[end(ir) < 27]
-ir[start(ir) > 10 & end(ir) < 27]
+******
+### Exercise
 
-```
+- What ranges have a width of 5?
+- What ranges have a start position greater than 10
+- What ranges have a start position greater than 10, and an end position less than 27?
+******
 
 
-# Manipulating Ranges
 
-## Lots of common use-cases are implemented
+## Manipulating Ranges
+
+When it comes to manipulating intervals, lots of common use-cases are implemented
 ![operations](images/ranges-fns.png)
 
 
-## Shifting
+### Shifting
 e.g. sliding windows
-
-```{r}
-ir
-shift(ir, 5)
-```
-
-## Shifting
-
 
 ```{r echo=FALSE}
 p2 <- autoplot(shift(ir,5),fill=brewer.pal(n=length(ir),"Set1")) +geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
-## Shifting
-
-Size of shift doesn’t need to be constant
 
 ```{r}
 ir
-shift(ir, 7:1)
+shift(ir, 5)
 ```
 
-## Shifting
+The Size of shift doesn’t need to be constant
 
 ```{r echo=FALSE}
 p2 <- autoplot(shift(ir,7:1),fill=brewer.pal(n=length(ir),"Set1"))+geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
-## Resize
-
-e.g. trimming reads
 
 ```{r}
-ir
-resize(ir,3)
+shift(ir, 7:1)
 ```
-## Resize
+
+
+
+### Resize
+
+e.g. trimming reads
 
 ```{r echo=FALSE}
 p2 <- autoplot(resize(ir,3),fill=brewer.pal(n=length(ir),"Set1")) + geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
+```{r}
+resize(ir,3)
+```
+
+******
+### Exercise
+
+Explain the behaviour of the following:-
+
+```{r}
+resize(ir,3)
+resize(ir,3,fix = "start")
+resize(ir,3,fix = "end")
+resize(ir,3,fix = "center")
+
+```
 
 
-## Coverage
+
+******
+
+### Coverage
 
 - Often we want to know how much sequencing we have at particular positions
     + i.e. depth of coverage
 
-`coverage` returns a *Run Length Encoding* - an efficient representation of repeated values
+`coverage` returns a *Run Length Encoding* - an efficient representation of repeated values. At a whole-chromosome level, we have a large stretch of positions with the same coverage level. It would be rather inefficient to store the data in a vector. Although we can convert between `Rle`objects and vectors.
 
 ```{r}
 cvg <- coverage(ir)
 cvg
 as.vector(cvg)
-
 ```
 
-## Coverage Results
+Often we might want to know what positions exceed a certain coverage level. This we can do using the `slice` function.
 
-```{r echo=FALSE}
-p2 <- autoplot(coverage(ir),binwidth=1) + ggtitle("Coverage")
-tracks(pl,p2)
+```{r}
+slice(cvg,2)
 ```
 
 ## Overlapping
-e.g. counting
-- The terminology of overlapping defines a *query* and a *subject*
-![overlaps](images/ranges-paper-overlaps.png)
 
-## Overlaps
+A large set of `IRanges` functionality is designed to deal with overlapping queries. Such operations are common in NGS analysis so we need to have an efficient way of performing them. You will probably come across such operations without even realising it.
 
-- lets start be defining a new set of ranges
+- What reads overlap with a particular genomic region?
+- What genes are affected by this particular copy-number loss / gain?
+- How many variants are in exonic regions?
+- For a given set of variants, what genes do they overlap with?
+- How many variants does my gene of interest have?
+
+The terminology of overlapping defines a *query* and a *subject*
+![](images/ranges-paper-overlaps.png)
+
+
+- To illustrate lets start be defining a new set of ranges
 
 ```{r}
-ir3 <- IRanges(start = c(1, 14, 27), end = c(13,
+ir2 <- IRanges(start = c(1, 14, 27), end = c(13,
     18, 30),names=c("X","Y","Z"))
-ir3
-
+ir2
 ```
-## Overlaps
+
 
 ```{r echo=FALSE}
-p2 <- autoplot(ir3)
+p2 <- autoplot(ir2)
 tracks(pl,p2)
 
 ```
 
 
-## Overlaps
 
-
-- The `findOverlaps` function is used for overlap
+- The `findOverlaps` function can be used for overlap
     + the output isn't immediately obvious
     + length of output is the number of *hits*
         + each hit is defined by a subject and query index
@@ -436,7 +427,7 @@ tracks(pl,p2)
     
 ```{r}
 query <- ir
-subject <- ir3
+subject <- ir2
 ov <- findOverlaps(query, subject)
 ov
 ```
@@ -463,64 +454,13 @@ query[queryHits(ov)[1]]
 subject[subjectHits(ov)[1]]
 ```
 
-
-```{r echo=FALSE, fig.height=3}
-fll <- rep("white", length(ir))
-fll[queryHits(ov)[1]] <- "black"
-
-qplot <- autoplot(ir,fill=fll)+geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Query")
-
-fll <- rep("white", length(ir3))
-fll[subjectHits(ov)[1]] <- "black"
-
-subplot <- autoplot(ir3,fill=fll) +geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Subject")
-tracks(qplot, subplot,main="Query (above) and Subject (below)")  
-```
-
-## Overlap example - Second hit
+It is more common to use the `%over%` shortcut , which tells us (via a `TRUE` or `FALSE`) if every range in the query overlaps with the subject or not. The result can then be used for subset operations.
 
 ```{r}
-query[queryHits(ov)[2]]
-subject[subjectHits(ov)[2]]
+ir %over% ir2
+ir[ir %over% ir2]
 ```
 
-
-```{r echo=FALSE,fig.height=3}
-fll <- rep("white", length(ir))
-fll[queryHits(ov)[2]] <- "black"
-
-qplot <- autoplot(ir,fill=fll)+ geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Query")
-
-fll <- rep("white", length(ir3))
-fll[subjectHits(ov)[2]] <- "black"
-
-subplot <- autoplot(ir3,fill=fll) +geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Subject")
-tracks(qplot, subplot,main="Query (above) and Subject (below)")  
-```
-
-## Overlap example - Third hit
-
-```{r}
-query[queryHits(ov)[3]]
-subject[subjectHits(ov)[3]]
-```
-
-
-```{r echo=FALSE,fig.height=3}
-fll <- rep("white", length(ir))
-fll[queryHits(ov)[3]] <- "black"
-
-qplot <- autoplot(ir,fill=fll)+ geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Query")
-
-fll <- rep("white", length(ir3))
-fll[subjectHits(ov)[3]] <- "black"
-
-subplot <- autoplot(ir3,fill=fll) +geom_vline(xintercept=seq(1,40,by=1),lty=2) + ggtitle("Subject")
-tracks(qplot, subplot,main="Query (above) and Subject (below)")  
-```
-
-
-## Counting
 
 - If we just wanted to count the number of overlaps for each range, we can use `countOverlaps`
     + result is a vector with length the number of intervals in query
@@ -528,48 +468,100 @@ tracks(qplot, subplot,main="Query (above) and Subject (below)")
     
 ```{r}
 countOverlaps(query,subject)
+
 ```
-- Order of arguments is important
+
+- The order of arguments is important
+
 ```{r}
 countOverlaps(subject,query)
 ```
 
-
-
-## Intersection
-
 - Rather than counting, we might want to know which positions are in common
 ```{r}
-intersect(ir,ir3)
-
+intersect(ir,ir2)
 ```
-
-```{r echo=FALSE}
-pl2 <- autoplot(ir3)
-p2 <- autoplot(intersect(ir,ir3))
-tracks(pl,pl2,p2)
-
-```
-
-## Subtraction
 
 - Or which positions are missing
 
 ```{r}
-setdiff(ir,ir3)
+setdiff(ir,ir2)
 
 ```
 
-```{r echo=FALSE}
-p2 <- autoplot(setdiff(ir,ir3))
-tracks(pl,pl2,p2)
+So far the objects we have been dealing with have been located on the same arbitrary linear scale. When dealing with genomic data, we'll want to deal with intervals that are located on different chromosomes. The next object-type gives us a way of handling this.
 
+## Introducing GRanges
+
+- `GRanges` are a special kind of `IRanges` object used to manipulate genomic intervals in an efficient manner
+- We can define a 'chromosome' for each range
+    + referred to as seqnames
+- we have the option to define a strand
+- need to supply a ranges object, as we saw before
+- operations on ranges respect the chromosome labels
+
+```{r message=FALSE}
+library(GenomicRanges)
+gr <- GRanges(c("A","A","A","B","B","B","B"), ranges=ir)
+gr
+```
+
+The object has gained a new variable `seqnames` which can be queried using the function `seqnames`.
+
+```{r}
+seqnames(gr)
+table(seqnames(gr))
 ```
 
 
+The operations we just described can also be applied to `GRanges` objects and it will respect the chromosome information
+
+```{r}
+resize(gr,4)
+coverage(gr)
+
+gr2 <- GRanges("A", ir2)
+gr2
+gr[gr %over% gr2]
+```
 
 
+The objects can be really powerful when we can add extra metadata
 
+- `mcols` can be set to be a data frame with one row for each range
+- Counts, gene names
+    + anything you like!
+
+```{r}
+mcols(gr) <- data.frame(Count = runif(length(gr)), Gene =sample(LETTERS,length(gr)))
+gr
+```
+
+The "counts" we have created here can be used in the subset operation
+
+```{r}
+gr[mcols(gr)$Count > 0.5]
+```
+
+
+## Representing a gene
+
+- Creating an object to represent a particular gene is easy if we know its coordinates
+    + we will look at representing the full gene structure later
+        + e.g. exons, introns etc
+
+```{r}
+mygene <- GRanges("chr17", ranges=IRanges(7577851, 7598063))
+mygene
+```
+
+At this point `IRanges` and `GRanges` are probably still a bit abstract, so we will demonstrate their utility by looking at a few examples.
+
+## Representing aligned data
+
+We can import reads from a `.bam` file into Bioconductor. However, to set expectations, we should probably say we are not going to be processing the reads from a whole-genome sequencing run in this manner. 
+
+A package that can be used to parse a bam file is `GenomicAlignments`
 
 ```{r}
 library(GenomicAlignments)
@@ -577,34 +569,184 @@ mybam <- readGAlignments("paired.bam")
 mybam
 ```
 
-How many reads have aligned to each chromosome
+You should see that the object created, `mybam` is displayed in a similar style to the `IRanges` and `GRanges` we have just been dealing with.
+
+******
+### Exercise
+
+- How many reads are in this bam file?
+- How many reads have aligned to each chromosome?
+
+******
+
+Once we have our reads in this form, we can start to play with some of the functions that we just learnt about. For example, a coverage vector is quite straightforward to obtain:-
 
 ```{r}
-table(seqnames(mybam))
+bamcov <- coverage(mybam)
+bamcov
 ```
+
+As we saw before, the coverage is calculated on each chromosome separately. To access the coverage for a particular chromosome we use the `$` operator.
+
+```{r}
+bamcov$"20"
+```
+
+******
+### Exercise
+- What is the mean coverage on chromosome 20? 
+- What is the maximum? 
+- How much of the chromosome has zero coverage?
+- What regions are covered by more than 50 reads
+******
+
+## Overlapping genes with reads
+
+Rather than looking at reads across the genome, we might be itching to look at that favourite gene of ours.
+
+```{r}
+mygene <- GRanges("chr17", ranges=IRanges(7577851, 7598063))
+mygene
+```
+
+The `countOverlaps` function introduced earlier might be an ideal candidate for this kind of investigation.
+
+```{r}
+countOverlaps(mygene, mybam)
+```
+
+
+******
+### Exercise
+- What is this this warning message telling us?
+```{r}
+table(seqnames(mybam))
+table(seqnames(mygene))
+```
+
+******
+
+Before attempting an overlap between two different set of ranges, we need to make sure that there sequences names are compatible. One solution is to be more careful when creating our ranges.
+
+```{r}
+mygene <- GRanges("17", ranges=IRanges(7577851, 7598063))
+countOverlaps(mygene, mybam)
+```
+
+The convenience function `seqlevelsStyle` has been written to help us understand what covention has been used to name the chromosomes
+
+```{r}
+mygene <- GRanges("chr17", ranges=IRanges(7577851, 7598063))
+seqlevelsStyle(mygene)
+seqlevelsStyle(mybam)
+seqlevelsStyle(mygene) <- "NCBI"
+countOverlaps(mygene, mybam)
+```
+
+If we want the actual reads themselves, we can use the `%over%` shortcut from earlier:-
+
+```{r}
+mybam[mybam %over% mygene]
+```
+
+Later we will revisit how to overlap reads with a particular gene of interest, as importing reads mapping to the entire genome and subsetting to our region of interest is not optimal
+
+## Investigating mapping quality
+
+For efficiency, the `readGAlignments` function imports a minimal amount of information from the file. From the specification of the `.sam `/ `.bam` file, there are many other useful pieces of information contained in the file. We can read more fields by making use of the `ScanBamParam` function. For instance, we might want to know the ID, sequence, mapping quality and "flag" for each read. We could do this in the following manner:-
 
 ```{r}
 bam <- readGAlignments("paired.bam",param=ScanBamParam(what=c("seq","mapq","flag")),use.names = TRUE)
+bam
 ```
 
+The command takes longer to run, but we get more detail on each of the reads. The extra fields make up the metadata for each reads and can be accessed using the `mcols` function that we met earlier. If we save this metadata as an object, we can use the usual `$` operator to access the columns
 
 ```{r}
-mcols(bam)
-hist(mcols(bam)$mapq)
+meta <- mcols(bam)
+meta
+meta$seq
 ```
 
-```{r}
-table(mcols(bam)$flag)
-dupReads <- bam[mcols(bam)$flag==1024]
+******
+### Exercise
 
+- What is the lowest mapping quality observed in the data?
+- Produce a histogram of the mapping qualities
+    + you should get something like...
+    
+```{r echo=FALSE}
+hist(meta$mapq)
 ```
 
+******
+
+The exact definition of mapping quality will vary according to which aligner was used, or maybe even the version of the aligner. Generally, we can say that low mapping quality is bad, and the majority of reads should be good quality. If we wish to impose such a threshold to do some filtering, we can do the following:-
+
 ```{r}
-flags <- mcols(bam)$flag
+toremove <- which(meta$mapq < 5)
+length(toremove)
+bam.filt <- bam[-toremove]
+bam.filt
+length(bam.filt) / length(bam)
+```
+
+Another field we might want to pay attention to is the `flag` of each read.
+
+## Fun with flags!
+
+
+******
+### Exercise
+
+- What categories of read to we have?
+HINT:-
+- a vector of all flags can be obtained by `meta$flag`
+- https://broadinstitute.github.io/picard/explain-flags.html
+    
+******
+
+Depending on the kind of sequencing we have performed, we might be cautious about reads that are flagged as PCR or optical duplicates. Most downstream analysis tools will ignore these, but we rarely remove them altogether from the file.
+
+The value of the flag is a combination of different quality indicators, so a PCR duplicate can be indicated by many different values. In our case, we don't have many different flags, so it is not too much work to identify all duplicates.
+
+```{r}
+dups <- which(meta$flag %in% c(1107,1123,1171,1187))
+length(dups)
+bam[dups]
+```
+
+Another option is to produce a convenient matrix which tabulates what flags have been set for each read. From this table we can identify the duplicates
+
+```{r}
 flagMat <- bamFlagAsBitMatrix(flags)
+dim(flagMat)
 head(flagMat)
-table(flagMat[,3])
+table(flagMat[,11])
 ```
+
+If we wanted to ignore the duplicates from the start, we can infact tell `readGAlignments` to ignore them by making use of the `scanBamFlag` option
+
+```{r eval=FALSE}
+bam.nodups <- readGAlignments(file="paired.bam", param=ScanBamParam(flag=scanBamFlag(isDuplicate = FALSE)))
+```
+
+Another situation where we might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can very quickly jump to a particular genomic region
+
+```{r}
+mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene))
+mygene.reads
+```
+
+The region filer can be used in conjuction with the `what` argument to `ScanBamParam` function to provide a detailed picture of the reads for your gene
+
+```{r}
+mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene, what=c("seq","mapq","flag","qual","isize")))
+mygene.reads
+```
+
+
+## Pre-built databases of gene coordinates
 
 ```{r}
 library(org.Hs.eg.db)
