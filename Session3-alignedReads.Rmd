@@ -297,10 +297,12 @@ width(ir)
     
 ******
 ### Exercise
+From the object we have just created:-
 
 - What ranges have a width of 5?
 - What ranges have a start position greater than 10
 - What ranges have a start position greater than 10, and an end position less than 27?
+
 ******
 
 
@@ -598,6 +600,7 @@ bamcov$"20"
 - What is the maximum? 
 - How much of the chromosome has zero coverage?
 - What regions are covered by more than 50 reads
+
 ******
 
 ## Overlapping genes with reads
@@ -615,16 +618,13 @@ The `countOverlaps` function introduced earlier might be an ideal candidate for 
 countOverlaps(mygene, mybam)
 ```
 
+What is this this warning message telling us? It's basically saying that the sequence names are not compatible
 
-******
-### Exercise
-- What is this this warning message telling us?
 ```{r}
 table(seqnames(mybam))
 table(seqnames(mygene))
 ```
 
-******
 
 Before attempting an overlap between two different set of ranges, we need to make sure that there sequences names are compatible. One solution is to be more careful when creating our ranges.
 
@@ -681,7 +681,7 @@ hist(meta$mapq)
 
 ******
 
-The exact definition of mapping quality will vary according to which aligner was used, or maybe even the version of the aligner. Generally, we can say that low mapping quality is bad, and the majority of reads should be good quality. If we wish to impose such a threshold to do some filtering, we can do the following:-
+The exact definition of mapping quality will vary according to which aligner was used, or maybe even the version of the aligner. If we wish to impose such a threshold to do some filtering, we can do the following:-
 
 ```{r}
 toremove <- which(meta$mapq < 5)
@@ -719,7 +719,7 @@ bam[dups]
 Another option is to produce a convenient matrix which tabulates what flags have been set for each read. From this table we can identify the duplicates
 
 ```{r}
-flagMat <- bamFlagAsBitMatrix(flags)
+flagMat <- bamFlagAsBitMatrix(meta$flag)
 dim(flagMat)
 head(flagMat)
 table(flagMat[,11])
@@ -731,10 +731,10 @@ If we wanted to ignore the duplicates from the start, we can infact tell `readGA
 bam.nodups <- readGAlignments(file="paired.bam", param=ScanBamParam(flag=scanBamFlag(isDuplicate = FALSE)))
 ```
 
-Another situation where we might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can very quickly jump to a particular genomic region
+Another situation where we might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can *very* quickly jump to a particular genomic region
 
 ```{r}
-mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene))
+system.time(mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene)))
 mygene.reads
 ```
 
@@ -748,19 +748,50 @@ mygene.reads
 
 ## Pre-built databases of gene coordinates
 
-```{r}
-library(org.Hs.eg.db)
-```
+Aside from the many useful software packages, Bioconductor also provides numerous annotation resources that we can utilise in our analysis. Firstly, we have a set of organism-level packages that can translate between different types of identifer. The package for humans is called `org.Hs.eg.db`. The advantage of such a package, rather than services such as biomaRt, is that we can do queries offline. The packages are updated every 6 months, so we can always be sure of what version of the relevant databases are being used.
 
 ```{r}
-columns(org.Hs.eg.db)
+library(org.Hs.eg.db)
+org.Hs.eg.db
+```
+
+There are several types of "key" we can use to make a query, and we have to specify one of these names. 
+
+```{r}
 keytypes(org.Hs.eg.db)
 ```
 
+For the given keytype we have chosen, we can also choose what data we want to retrieve. We can think of these as columns in a table, and the pre-defined values are given by:-
+
+```{r}
+columns(org.Hs.eg.db)
+```
+
+
+For example, if we want to know the *"Entrez"* ID for the gene BRCA1, we can do:-
 
 ```{r}
 eg <- select(org.Hs.eg.db, keys="BRCA1", keytype = "SYMBOL",columns = "ENTREZID")
+eg
 ```
+
+But we're not restricted to just one type of information to return
+
+```{r}
+eg <- select(org.Hs.eg.db, keys=c("BRCA1","PTEN"), keytype = "SYMBOL",columns = c("ENTREZID","ENSEMBL","GO"))
+eg
+```
+
+
+******
+### Exercise
+
+
+******
+
+You might expect to be able to retrieve information about the coordinates for a particular gene. This was supported until recently, but the recommended approach now is to use another class of packages which describe the structure of genes in more detail. 
+
+The packages
 
 ```{r}
 library(TxDb.Hsapiens.UCSC.hg19.knownGene)
@@ -793,5 +824,9 @@ mybam <- keepSeqlevels(mybam, "17")
 
 ```{r}
 mybam[mybam %over% mygene]
+```
+
+```{r}
+countOverlaps(mygene,mybam)
 ```
 
