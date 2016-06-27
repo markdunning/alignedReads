@@ -77,6 +77,9 @@ CC:Z:chr15      CP:i:102518319  XS:A:+  HI:i:0
     + Read is a PCR duplicate (see later)
 
 ```{r echo=FALSE}
+library(GenomicAlignments)
+mybam <- "paired.bam"
+gr <- GRanges("1", IRanges(10000,15000))
 bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=gr),use.names = TRUE)
 ```
 
@@ -95,7 +98,7 @@ SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTA
 ```{r echo=FALSE}
 suppressPackageStartupMessages(library(GenomicAlignments))
 mybam <- "paired.bam"
-
+bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=gr),use.names = TRUE)
 flags <- mcols(bam.extra)$flag
 flagMat <- bamFlagAsBitMatrix(flags)
 df <- data.frame(ReadHasProperty = as.logical(flagMat[1,]),Binary=flagMat[1,] ,MultiplyBy=2^(0:10))
@@ -192,7 +195,7 @@ Typically, you will be dealing with `.bam` files that are
 
 - indexed
 - sorted
-- have had *PCR duplicates marked
+- have had *PCR duplicates* marked
 
 
 ## About PCR duplicates...
@@ -861,6 +864,7 @@ mygene <- select(txdb, keys="672", columns = c("EXONCHROM","EXONSTART","EXONEND"
 mygene
 ```
 
+
 ******
 ### Exercise
 
@@ -869,11 +873,24 @@ mygene
 
 ******
 
+It is useful to be able to retrive the coordinates in this manner. However, we should now be familiar with the way intervals can be represented using `GRanges`. We have the ability to create a `GRanges` object from the result:- 
+
+```{r}
+my.gr <- GRanges(mygene$EXONCHROM, IRanges(mygene$EXONSTART,mygene$EXONEND))
+my.gr
+```
+
+
+
+A powerful feature of the transcript database packages is to allow the user to create a `GRanges` representation of *all* exons / transcripts for a particular organism. The function to do this is `exonsBy` (or equivalently `transcriptsBy`). The result is a *list* object that can be subset according to Entrez ID. 
 
 ```{r}
 allex <- exonsBy(txdb, "gene")
 mygene <- allex[["672"]]
+mygene
 ```
+
+We are almost in a position to overlap our reads with the `GRanges` representation of our gene. First of all, we need the same trick from before to make sure the chromosome names are compatible
 
 ```{r}
 seqlevelsStyle(mybam)
@@ -882,16 +899,28 @@ seqlevelsStyle(mygene) <- "Ensembl"
 mygene
 ```
 
+Furthermore, since we know we are only interested in the reads from chromosome 17, we could subset the reads accordingly.
+
+
+
 ```{r}
-mybam <- keepSeqlevels(mybam, "17")
+mybam.chr17 <- keepSeqlevels(mybam, "17")
 ```
 
-
 ```{r}
-mybam[mybam %over% mygene]
+mybam.chr17[mybam.chr17 %over% mygene]
+```
+
+NOTE:- it also seems that the Mitochondial sequence is a different length in the reference that these reads were aligned to, compared to the transcript database. It may seem like a trivial difference, but will cause an error if we don't perform the subset.
+
+```{}
+Error in mergeNamedAtomicVectors(seqlengths(x), seqlengths(y), what = c("sequence",  : 
+  sequence MT has incompatible seqlengths:
+  - in 'x': 16569
+  - in 'y': 16571
 ```
 
 ```{r}
-countOverlaps(mygene,mybam)
+countOverlaps(mygene,mybam.chr17)
 ```
 
