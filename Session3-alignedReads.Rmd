@@ -20,63 +20,89 @@ Unlike most of Bioinfomatics, a *single standard* file format has emerged for al
 ## The sam file
 
 - **S**equence **A**lignment/**M**ap (sam) http://samtools.github.io/hts-specs/SAMv1.pdf
-- *Header* lines followed by tab-delimited lines
+- *Header* lines starting with an `@` character, followed by tab-delimited lines
     + Header gives information about the alignment and references sequences used
 - Same format regardless of sequencing protocol (i.e. RNA-seq, ChIP-seq, DNA-seq etc)
 - May contain un-mapped reads
-
-```
-@HD     VN:1.0  SO:coordinate
-@SQ     SN:chr1 LN:249250621
-@SQ     SN:chr10        LN:135534747
-@SQ     SN:chr11        LN:135006516
-```
-
-
-```
-HWI-ST1001:137:C12FPACXX:7:1115:14131:66670     0       chr1    12805   1       42M4I5M *
-0       0       TTGGATGCCCCTCCACACCCTCTTGATCTTCCCTGTGATGTCACCAATATG     
-CCCFFFFFHHGHHJJJJJHJJJJJJJJJJJJJJJJIJJJJJJJJJJJJIJJ     
-AS:i:-28        XN:i:0  XM:i:2  XO:i:1XG:i:4   NM:i:6  MD:Z:2C41C2     YT:Z:UU NH:i:3  
-CC:Z:chr15      CP:i:102518319  XS:A:+  HI:i:0
-
-```
-
-- http://homer.salk.edu/homer/basicTutorial/samfiles.html
-
-
 - Large size on disk; ~100s of Gb
     + Can be manipulated with standard unix tools; e.g. *cat*, *head*, *grep*, *more*, *less*
+- Official specification can be obtained here: -http://samtools.github.io/hts-specs/SAMv1.pdf
 
-## Sam format - key columns
+
+The first part of the header lists the names (`SN`) of the sequences (chromosomes) used in alignment and their length (`LN`). 
+```
+@HD	VN:1.5	SO:coordinate	GO:none
+@SQ	SN:1	LN:249250621	M5:1b22b98cdeb4a9304cb5d48026a85128
+@SQ	SN:2	LN:243199373	M5:a0d9851da00400dec1098a9255ac712e
+@SQ	SN:3	LN:198022430	M5:fdfd811849cc2fadebc929bb925902e5
+@SQ	SN:4	LN:191154276	M5:23dccd106897542ad87d2765d28a19a1
+.....
+.....
 
 ```
-HWI-ST1001:137:C12FPACXX:7:1115:14131:66670     0       chr1    12805   1       42M4I5M *
-0       0       TTGGATGCCCCTCCACACCCTCTTGATCTTCCCTGTGATGTCACCAATATG     
-CCCFFFFFHHGHHJJJJJHJJJJJJJJJJJJJJJJIJJJJJJJJJJJJIJJ     
-AS:i:-28        XN:i:0  XM:i:2  XO:i:1XG:i:4   NM:i:6  MD:Z:2C41C2     YT:Z:UU NH:i:3  
-CC:Z:chr15      CP:i:102518319  XS:A:+  HI:i:0
+
+Next we can define the *read groups* present in the file which we can use to identify which sequencing library, sequencing centre, sample name etc.
+
+```
+@RG	ID:SRR077850	CN:bi	LB:Solexa-42057	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR081675	CN:bi	LB:Solexa-42316	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR080818	CN:bi	LB:Solexa-44770	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR084838	CN:bi	LB:Solexa-42316	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR081730	CN:bi	LB:Solexa-42316	PL:illumina	PU:ILLUMINA	SM:NA06984
+.....
+.....
 
 ```
 
-![](images/sam-format.png)
+Finally, we have a section where we can record the processing steps used to derive the file
+```
+@PG	ID:MosaikAligner	CL:/share/home/wardag/programs/MOSAIK/bin/MosaikAligner -in /scratch/wardag/NA06984.SRR077850.mapped.illumina.mosaik.CEU.SINGLE.20111114/NA06984.SRR077850.mapped.illumina.mosaik.CEU.SINGLE.20111114.mkb -out
+....
+....
 
-- http://samtools.github.io/hts-specs/SAMv1.pdf
-    + Read name
-    + Chromosome
-    + Position
-    + Mapping quality
-    + etc...
+```
 
-## Sam file flags
+Next is a *tab-delimited* section that describes the alignment of each sequence in detail. 
 
-- Represent useful QC information
-    + Read is unmapped
-    + Read is paired / unpaired
-    + Read failed QC
-    + Read is a PCR duplicate (see later)
+```
+SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC:
 
-```{r echo=FALSE}
+
+```
+
+![](images/sam-entry-explained.png)
+
+Column | Official Name | Brief
+------ | -------------- | -----------
+1      | QNAME          | Sequence ID
+2      | FLAG           | Sequence quality expressed as a bitwise flag
+3      | RNAME          | Chromosome
+4      | POS            | Start Position
+5      | MAPQ           | Mapping Quality
+6      | CIGAR          | Describes positions of matches, insertions, deletions w.r.t reference
+7      | RNEXT          | Ref. name of mate / next read
+8      | PNEXT          | Postion of mate / next read
+9      | TLEN           | Observed Template length
+10     | SEQ            | Sequence
+11     | QUAL           | Base Qualities
+
+There can also be all manner of optional tags as extra columns. A common use is the `RG` tag which refers back to the read groups in the header.
+
+Unlike the fastq files, where we had a separate file for forward and reverse reads, the sam file contains all reads. Reads that are paired with each other should appear in consecutive lines immediately after alignment and generation of the same file. Otherwise it is more common for the file to be sorted according to genomic coordinates. The paired reads should share the same sequence ID in the first column (sometimes with a `/1` or `/2` to indicate which is which) and the position of mate columns etc should be consistent.
+
+![](images/pairs-explained.png)
+
+
+
+## Fun with flags!
+
+The *"flags"* in the sam file can represent useful QC information
+  + Read is unmapped
+  + Read is paired / unpaired
+  + Read failed QC
+  + Read is a PCR duplicate (see later)
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
 library(GenomicAlignments)
 mybam <- "paired.bam"
 gr <- GRanges("1", IRanges(10000,15000))
@@ -84,18 +110,14 @@ bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=
 ```
 
 
-```{}
-system("samtools view paired.bam | grep SRR081708.237649")
-```
-
 For instance, a particular read has a flag of 163
-```
-SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>	MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC
-```
 
-## Derivation
+![](images/flag-highlight.png)
 
-```{r echo=FALSE}
+
+### Derivation
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
 suppressPackageStartupMessages(library(GenomicAlignments))
 mybam <- "paired.bam"
 bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=gr),use.names = TRUE)
@@ -111,6 +133,39 @@ See also
 
 - https://broadinstitute.github.io/picard/explain-flags.html
 
+## Have a Cigar!
+
+![](images/cigar-highlight.png)
+
+The ***CIGAR*** string is a way of encoding the match between a given sequence and the position it has been assigned in the genome. It is comprised by a series of letters and numbers to indicate how many consecutive bases have that mapping.
+
+
+ 
+ Code  | Description
+------------- | -------------
+M  | alignment match
+I  | insertion
+D  | deletion
+N  | skipped
+S  | soft-clipping
+H  | hard-clipping
+
+
+e.g.
+
+- `68M`
+    + 100 bases matching the reference
+- `1S67M`
+    + 1 soft-clipped read followed by 67 matches
+- `15M87N70M90N16M`
+    + 15 matches following by 87 bases skipped followed by 70 matches etc.
+
+## Other references:-
+
+- http://genome.sph.umich.edu/wiki/SAM
+- http://davetang.org/wiki/tiki-index.php?page=SAM
+- http://samtools.github.io/hts-specs/SAMv1.pdf
+ 
 ## samtools
 
 `samtools` is one of the most-popular ngs-related tools and has a wealth of tools for dealing with files in `.bam` and `.sam` format. If you are going to start processing your own data, the chances are you'll be using `samtools` a lot. Typing `samtools` in a terminal will give a quick overview of the functions available, and importantly, the version number of the software.
@@ -145,7 +200,7 @@ samtools view paired.bam | head
 ```
 
 ```{}
-samtools view 1:1-100000 random.bam
+samtools view 1:1-100000 paired.bam
 ```
 
 ### Other useful samtools commands
@@ -923,4 +978,6 @@ Error in mergeNamedAtomicVectors(seqlengths(x), seqlengths(y), what = c("sequenc
 ```{r}
 countOverlaps(mygene,mybam.chr17)
 ```
+
+# References
 
