@@ -5,11 +5,6 @@ date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
 output: html_document
 ---
 
-# Outline
-
-- How aligned reads are represented
-- [Visualising aligned reads in IGV](#igv)
-- [Looking at aligned reads in R and Bioconductor](#bioc)
 
 # Understanding file formats for aligned reads
 
@@ -66,7 +61,6 @@ Next is a *tab-delimited* section that describes the alignment of each sequence 
 
 ```
 SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC:
-
 
 ```
 
@@ -177,8 +171,15 @@ samtools
 More information about a particular command within samtools can be displayed by printing `samtools` followed by the name of the command. For example, the `samtools view` command can convert a `.sam` file into a compressed version called a `.bam` file. This is a very-common step in an NGS workflow.
 
 ```{}
-samtools view
+samtools view -bS sample.sam > sample.bam
 ```
+
+```{}
+-b: output a bam file
+-S: input is a sam file
+> : redirect to a file
+```
+
 
 So a `.bam` file is
 
@@ -216,7 +217,6 @@ samtools sort
     + Which allows us to access the file more easily
     
 ```{}
-
 samtools index
 ```
 
@@ -291,4 +291,4 @@ Picard is another very-common tool in NGS analysis with lots of conversion, mani
 java -jar $PICARD -h
 ```
 
-
+The easiest way to actually *"see"* the reads is using a browser such as IGV, as we will see in the next section.

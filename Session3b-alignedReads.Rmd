@@ -1,0 +1,42 @@
+---
+title: "Understanding Alignments"
+author: "Mark Dunning"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+output: html_document
+---
+
+## Introducing the IGV Browser
+
+Arguably the most-important tool you will learn about in this course is [IGV](https://www.broadinstitute.org/igv/). Whilst tools like R are very powerful and allow you to perform statistical analyses and test hypotheses, there is no substitute for ***looking at the data**. A trained-eye can quite quickly get a sense of the data quality before any computational analyses have been run. Futhermore, as the person requesting the sequencing, you probably know a lot about the biological context of the samples and what to expect. 
+
+## Introductory slides
+
+
+<a target="_blank" href="http://mrccsc.github.io/IGV_course/igv.html#/">IGV introduction by MRC Clinical Sciences Centre, London</a>
+
+## Practice
+
+Go to ***File*** -> ***Load from file*** and select `paired.bam`. Note that the file `paired.bam.bai` needs to be present in the same directory. However, you only need to click on the `.bam`
+
+- Make sure that `hg19` is selected from the Genome menu
+- Navigate to `chr1:9,939-10,224`; 
+
+![](images/igv_start.png)
+
+- Each of the grey pointed rectangles represents a sequencing reads
+    + whether the pointed bit is on the left or right indicates if the read is forward or reverse.
+- The black dotted vertical lines indicates the centre of the view
+- You should see the read that we were looking at before and can *hover* over the read to display the information from the `.bam` file
+
+```
+SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC:
+
+```
+
+- Why does the read have orange rectangles inside it?
+    + zoom-in to see why
+
+- You can right-click on our read of interest and select "Go to Mate".
+    + this should cause the paired-read to be highlighted on the screen
+    + notice how it points in the other direction
+
