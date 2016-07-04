@@ -5,17 +5,124 @@ date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
 output: html_document
 ---
 
+# Outline
+
+- more file formats
+- useful objects for dealing with genomic intervals
+- overlapping set of regions
+- exploring a `.bam` file using Bioconductor
+
+# File formats for genomic intervals
+
+We've already introduced several file formats:-
+
+- `.fastq` for raw reads with qualities
+- `.sam` for sequence alignments 
+- `.bam` as compressed version of `.sam`
+
+There are several more file formats designed to represent genomic features. It will be useful to introduce these before looking at how to access aligned reads in R.
+
+- `.bed`
+    + Genomic Intervals and information
+- Wiggle / BedGraph
+    + Genomic Intervals and scores
+- GFF
+    + Genomic annotation with information and scores
+
+## bed format
+
+
+<div id="BED3" align="center">
+  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337209/BED3.png" alt="">
+</div>  
+
+- Simple format
+- 3 tab-separated columns
+- Chromosome, start, end
+- Can be extended to `BED6`
+
+<div id="BED3" align="center">
+  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337158/bed6.png" alt="">
+</div>  
+
+
+- As before Chromosome, start, end
+- Identifier
+- Score
+- Strand
+    + or "." or strandless
+    
+## "Wiggle"
+
+<div id="BED3" align="center">
+  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337110/wiggle.png" alt="">
+</div>  
+
+- Information line
+    + chromosome
+    + step size
+- Step start position
+- Score
+
+## bedGraph
+
+
+<div id="BED3" align="center">
+  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337228/bedgraph3.png" alt="">
+</div>  
+
+- Uses `BED3` format
+- Chromosome, start, end
+- 4th column in Score
+
+
+## `.gff`
+
+<div id="BED3" align="center">
+  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337244/gff.png" alt="">
+</div>  
+
+- Used to represent genome annotation
+- Store position, feature (exon) and meta-feature (transcript / gene) information
+- Columns 1, 4, 5,7
+  + chromosome
+  + start of feature
+  + end of feature
+
+- Columns 2, 3, 6
+  + source
+  + feature type
+  + score
+  
+- Column 9
+  + key-pairs separated by semi-colons (`;`)
+  + ID - feature name
+  + PARENT - meta-feature name
+  
+
+The files described above can all be loaded into IGV and genome browsers such as UCSC. However, they can be manipulated more efficiently if compressed and indexed
+
+- wiggle / bedgraph -> bigWig (`.bw` / `.bigWig`)
+- BED -> bigBed (`/bb`)
+- BED and GFF -> `.gz` (zipped) and `.tbi` indexed
+
+## More definitions here
+
+- UCSC file formats
+    + https://genome.ucsc.edu/FAQ/FAQformat.html
+- IGV file formats
+    + https://www.broadinstitute.org/igv/FileFormats
+- Sanger (GFF)
+    + https://www.sanger.ac.uk/resources/software/gff/spec.html
+
+
+ 
 # <a name="bioc"></a> Processing with R and Bioconductor
 
-To understand how to process aligned reads with Bioconductor, we need to introduce a key data-type.
+We will now look at how we can represent and access genomic intervals in R and Bioconductor. We should note that these tools fit best within the framework of the course. There are tools outside of R that are extremely powerful; such as (***bedtools***)[http://bedtools.readthedocs.io/en/latest/] which are worth considering if you want to go further with NGS analysis.
 
-## Core data-type 1: Genome Intervals
+## Genomic Intervals in Bioconductor
 
-- A Genome is typically represented as linear sequence
-- Ranges are an ordered set of consecutive integers defined by a start and end position
-    + start $\le$ end
-- Ranges are a common scaffold for many genomic analyses
-- Ranges can be associated with genomic information (e.g. gene name) or data derived from analysis (e.g. counts)
 - The `IRanges` package in Bioconductor allows us to work with intervals
     + one of the aims of Bioconductor is to encourage core object-types and functions
     + `IRanges` is an example of this
@@ -338,8 +445,6 @@ gr[mcols(gr)$Count > 0.5]
 ```
 
 
-## Representing a gene
-
 - Creating an object to represent a particular gene is easy if we know its coordinates
     + we will look at representing the full gene structure later
         + e.g. exons, introns etc
@@ -350,7 +455,26 @@ mygene
 ```
 
 
-## Representing aligned data
+## Importing ranges from a file
+
+The `rtracklayer` package in Bioconductor supports then impot and export of many common file formats, including those we introduced at the start of the session.
+
+```{r}
+library(rtracklayer)
+```
+
+The `import` function can be used with a valid path to a connection (`con`), which can be a file stored locally, or online. Here we will load an example file that comes packaged with `rtracklayer`.
+
+```{r}
+bed.test <- import(con=paste(system.file("tests",package="rtracklayer"), "test.bed",sep="/"))
+bed.test
+
+gff.test <- import(con=paste(system.file("tests",package="rtracklayer"), "v1.gff",sep="/"))
+gff.test
+```
+
+
+## Importing aligned data
 
 We can import reads from a `.bam` file into Bioconductor. However, to set expectations, we should probably say we are not going to be processing the reads from a whole-genome sequencing run in this manner. This can be a useful way of diving-into a particular region of interest and exploring the data.
 
@@ -499,35 +623,23 @@ length(bam.filt) / length(bam)
 
 Another field we might want to pay attention to is the `flag` of each read.
 
-## Fun with flags!
 
-
-******
-### Exercise
-
-- What categories of flag do we have?
-HINT:-
-- a vector of all flags can be obtained by `meta$flag`
-- https://broadinstitute.github.io/picard/explain-flags.html
-    
-******
 
 Depending on the kind of sequencing we have performed, we might be cautious about reads that are flagged as PCR or optical duplicates. Most downstream analysis tools will ignore these, but we rarely remove them altogether from the file.
 
 The value of the flag is a combination of different quality indicators, so a PCR duplicate can be indicated by many different values. In our case, we don't have many different flags, so it is not too much work to identify all duplicates.
 
+```{r}
+table(meta$flag)
+```
+
+We can consult with the [explain flags](https://broadinstitute.github.io/picard/explain-flags.html) site to see which correspond to duplicates.
+
 ```{r eval=FALSE}
 dups <- which(meta$flag %in% c(1107,1123,1171,1187))
 length(dups)
-bam[dups]
 ```
 
-
-```{r echo=FALSE}
-dups <- which(meta$flag %in% c(1107,1123,1171,1187))
-length(dups)
-bam[dups][1:3]
-```
 
 Another option is to produce a convenient matrix which tabulates what flags have been set for each read. From this table we can identify the duplicates
 
@@ -706,15 +818,24 @@ mygene <- keepSeqlevels(mygene,"17")
 reads <- readGAlignments("paired.bam",param=ScanBamParam(which=mygene))
 ```
 
+A final note is that we can also export any ranges we have created to a file (e.g. a `.bed` file) for further processing or visualisation in IGV.
+
+```{r}
+export(mygene, con="mygene.bed")
+```
+
 
 # Summary
 
-We have explored the properties of bam files using Bioconductor. The techniques and types of object we have learnt about we crop-up again-and-again in the course. The vast majority of NGS analysis tools in Bioconductor will use `GenomicRanges` and `TxDb` objects in some form. 
+We have explored the properties of bam files using Bioconductor. The techniques and types of object we have learnt about will crop-up again-and-again in the course. The vast majority of NGS analysis tools in Bioconductor will use `GenomicRanges` and `TxDb` objects in some form. 
 
-Due to the high-volume of the dataset some of the tools and pipelines we use will not be in R. However, you will still be able to interrogate the results you obtain and explore them in more detail using R.
+Due to the high-volume of the dataset, some of the tools and pipelines we use will not be in R. However, you will still be able to interrogate the results you obtain and explore them in more detail using R.
+
+
+
 
 ******
-### Exercise
+### Exercise (Optional)
 
 - Find the locations of all exons on chromosome 22
 - Create a subset of reads that align to chromosome 22
