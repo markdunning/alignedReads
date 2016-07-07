@@ -91,6 +91,7 @@ Unlike the fastq files, where we had a separate file for forward and reverse rea
 ## Fun with flags!
 
 The *"flags"* in the sam file can represent useful QC information
+
   + Read is unmapped
   + Read is paired / unpaired
   + Read failed QC
@@ -131,7 +132,7 @@ See also
 
 ![](images/cigar-highlight.png)
 
-The ***CIGAR*** string is a way of encoding the match between a given sequence and the position it has been assigned in the genome. It is comprised by a series of letters and numbers to indicate how many consecutive bases have that mapping.
+The ***CIGAR*** (**C**ompact **I**diosyncratic **G**apped **Alignment** **R**eport) string is a way of encoding the match between a given sequence and the position it has been assigned in the genome. It is comprised by a series of letters and numbers to indicate how many consecutive bases have that mapping.
 
 
  
@@ -162,13 +163,15 @@ e.g.
  
 ## samtools
 
-`samtools` is one of the most-popular ngs-related tools and has a wealth of tools for dealing with files in `.bam` and `.sam` format. If you are going to start processing your own data, the chances are you'll be using `samtools` a lot. Typing `samtools` in a terminal will give a quick overview of the functions available, and importantly, the version number of the software.
+`samtools` is one of the most-popular ngs-related software suites and has a wealth of tools for dealing with files in `.bam` and `.sam` format. If you are going to start processing your own data, the chances are you'll be using `samtools` a lot. Typing `samtools` in a terminal will give a quick overview of the functions available, and importantly, the version number of the software.
 
 ```{}
 samtools 
 ```
 
 More information about a particular command within samtools can be displayed by printing `samtools` followed by the name of the command. For example, the `samtools view` command can convert a `.sam` file into a compressed version called a `.bam` file. This is a very-common step in an NGS workflow.
+
+Lets assume we have a file `sample.sam` which is the result of aligning reads using a tool such as `bwa`. Then the command to convert would be:-
 
 ```{}
 samtools view -bS sample.sam > sample.bam
@@ -199,6 +202,8 @@ The `samtools view` command needs to be used with a bit of care if not selecting
 ```{}
 samtools view paired.bam | head
 ```
+
+Alternative, we can print the reads within a specific region. There are also options to print reads with particular *flags*.
 
 ```{}
 samtools view 1:1-100000 paired.bam
