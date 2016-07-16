@@ -84,6 +84,9 @@ There are also a number of *accessor* functions that can get particular items fr
 
 
 ******
+******
+******
+
 ### Exercise
 
 - How many reads have an exact match to the genome
@@ -91,32 +94,44 @@ There are also a number of *accessor* functions that can get particular items fr
 - What proportion of all reads is this?
 
 ******
+******
+******
 
-The chromosome that each read is aligned to can be obtained using the `seqnames` function. Unlike the functions we have just introduced, that return a vector, `seqnames` gives a result in a slightly different form
+The object we have created, `bam`, contains only a small amount of the information available in a `.bam` file. If we wish we can import extra fields such as the read sequence, mapping quality and flag:-
 
-```{r}
-chrs <- seqnames(mybam)
-chrs
+```{r eval=FALSE}
+bam <- readGAlignments("paired.bam",param=ScanBamParam(what=c("seq","mapq","flag")))
+bam
 ```
 
-This `Rle` object is a way of representing vectors with lots of repetition; rather than repeating the value `1` 1222361 times, we represent this as a *run* of 1 with length 1222361. Fortunately, many functions will treat the output of `seqnames` as if it were a regular vector.
-
-```{r}
-table(chrs)
+```{r echo=FALSE}
+bam <- readGAlignments("paired.bam",param=ScanBamParam(what=c("seq","mapq","flag")))
+bam[1:3]
 ```
 
-This type of object is also created when we compute the *coverage* of a particular region. Using the `coverage` function we get an `Rle` object for each chromosome. We can access the coverage for a particular chromosome by putting the chromosome name inside double square brackets `[[]]`. This is the usual way of accessing items in a list in R, which you might have come across.
+
+The command takes longer to run, but we get more detail on each of the reads. The extra fields make up the *metadata* for each read and can be accessed using the `mcols` function. If we save this metadata as an object, we can treat it as a `data frame` and therefore have the usual `$` operator to access the columns
 
 ```{r}
-bamcov <- coverage(mybam)
-bamcov
-bamcov[["1"]]
+meta <- mcols(bam)
 ```
 
-Do we have any regions on Chromosome 1 with more than 400 reads? We can do this using `slice`.
+The sequences are stored in `Biostrings` format
+```{r}
+meta$seq
+```
+
+The flags should be valid values as [explained](https://broadinstitute.github.io/picard/explain-flags.html) online
 
 ```{r}
-slice(bamcov[["1"]],400)
+table(meta$flag)
+```
+
+Finally the mapping qualities are numeric quantities that will vary according to aligner
+
+```{r}
+summary(meta$mapq)
+hist(meta$mapq)
 ```
 
 
@@ -128,6 +143,8 @@ mybam[my.reads]
 ```
 
 However, there are much more efficient ways to do such queries in Bioconductor. First of all, we need to understand a bit more about how the data are being represented.
+
+## Introducing ranges objects
 
 `GenomicAlignments` is part of a family of packages that provide object-types and functionality for dealing with genomic intervals; which are described in a [PLoS Computational Biology paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003118) from 2013. 
 
@@ -143,6 +160,15 @@ ir
 There is an extensive list of operations that we can perform on this object
 
 ![](images/ranges-fns.png)
+
+
+```{r}
+shift(ir, 5)
+resize(ir ,2)
+reduce(ir)
+coverage(ir)
+```
+
 
 To start using these operations in a genome context, we can create a `GRanges` object. This has all the same information as an `IRanges` object with extra capability to store the sequence name, strand and other (optional) metadata.
 
@@ -200,101 +226,11 @@ If we want the actual reads themselves, we can use a convenient `%over%` shortcu
 mybam[mybam %over% mygene]
 ```
 
-Later we will revisit how to overlap reads with a particular gene of interest, as importing reads mapping to the entire genome and subsetting to our region of interest is not optimal
-
-## Investigating mapping quality
-
-For efficiency, the `readGAlignments` function imports a minimal amount of information from the file. From the specification of the `.sam `/ `.bam` file, there are many other useful pieces of information contained in the file. We can read more fields by making use of the `ScanBamParam` function. For instance, we might want to know the ID, sequence, mapping quality and "flag" for each read. We could do this in the following manner:-
-
-```{r eval=FALSE}
-bam <- readGAlignments("paired.bam",param=ScanBamParam(what=c("seq","mapq","flag")))
-bam
-```
-
-```{r echo=FALSE}
-bam <- readGAlignments("paired.bam",param=ScanBamParam(what=c("seq","mapq","flag")))
-bam[1:3]
-```
 
 
-The command takes longer to run, but we get more detail on each of the reads. The extra fields make up the *metadata* for each read and can be accessed using the `mcols` function. If we save this metadata as an object, we can treat it as a `data frame` and therefore have the usual `$` operator to access the columns
+## Extracting a subset of reads
 
-```{r}
-meta <- mcols(bam)
-meta
-meta$seq
-```
-
-******
-### Exercise
-
-- What is the lowest mapping quality observed in the data?
-- Produce a histogram of the mapping qualities
-    + you should get something like...
-    
-```{r echo=FALSE}
-hist(meta$mapq)
-```
-
-******
-
-The exact definition of mapping quality will vary according to which aligner was used, or maybe even the version of the aligner. If we wish to impose such a threshold to do some filtering, we can do the following:-
-
-```{r eval=FALSE}
-toremove <- which(meta$mapq < 5)
-length(toremove)
-bam.filt <- bam[-toremove]
-bam.filt
-length(bam.filt) / length(bam)
-```
-
-```{r echo=FALSE}
-toremove <- which(meta$mapq < 5)
-length(toremove)
-bam.filt <- bam[-toremove]
-bam.filt
-length(bam.filt) / length(bam)
-```
-
-
-Another field we might want to pay attention to is the `flag` of each read.
-
-
-
-Depending on the kind of sequencing we have performed, we might be cautious about reads that are flagged as PCR or optical duplicates. Most downstream analysis tools will ignore these, but we rarely remove them altogether from the file.
-
-The value of the flag is a combination of different quality indicators, so a PCR duplicate can be indicated by many different values. In our case, we don't have many different flags, so it is not too much work to identify all duplicates.
-
-```{r}
-table(meta$flag)
-```
-
-We can consult with the [explain flags](https://broadinstitute.github.io/picard/explain-flags.html) site to see which correspond to duplicates.
-
-```{r eval=FALSE}
-dups <- which(meta$flag %in% c(1107,1123,1171,1187))
-length(dups)
-```
-
-
-Another option is to produce a convenient matrix which tabulates what flags have been set for each read. From this table we can identify the duplicates
-
-```{r}
-flagMat <- bamFlagAsBitMatrix(meta$flag)
-dim(flagMat)
-head(flagMat)
-table(flagMat[,11])
-```
-
-N.B. These numbers should tally with the `samtools flagstat` output that we saw earlier.
-
-If we wanted to ignore the duplicates from the start, we can infact tell `readGAlignments` to ignore them by making use of the `scanBamFlag` option
-
-```{r eval=FALSE}
-bam.nodups <- readGAlignments(file="paired.bam", param=ScanBamParam(flag=scanBamFlag(isDuplicate = FALSE)))
-```
-
-Another situation where we might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can *very* quickly jump to a particular genomic region. Notice that this (should) give the same number of reads as before when we did a `countOverlaps` operation.
+We might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can *very* quickly jump to a particular genomic region. Notice that this (should) give the same number of reads as before when we did a `countOverlaps` operation.
 
 ```{r}
 system.time(mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene)))
@@ -382,11 +318,17 @@ mygene
 
 
 ******
+******
+******
+
 ### Exercise
 
-- Using the results from the previous exercise, retrieve the exon coordinates for the gene `PTEN`
+- Retrieve the exon coordinates for the gene `PTEN`
+    - you'll need the Entrez ID for this gene as retrieved above
 - How about all transcripts for PTEN and BRCA1?
 
+******
+******
 ******
 
 It is useful to be able to retrive the coordinates in this manner. However, we should now be familiar with the way intervals can be represented using `GRanges`. We have the ability to create a `GRanges` object from the result:- 
@@ -462,6 +404,30 @@ export(mygene, con="mygene.bed")
 ```
 
 
+```{r echo=FALSE}
+mygene <- allex[["5728"]]
+seqlevelsStyle(mygene) <- "Ensembl"
+mygene <- keepSeqlevels(mygene,"10")
+reads <- readGAlignments("paired.bam",param=ScanBamParam(which=mygene,what=c("seq","mapq","flag","qual","isize")))
+```
+
+
+******
+******
+******
+
+### Exercise
+
+- Import all the reads from the file `paired.bam` that align to the gene PTEN
+- Obtain counts for the number of reads mapping to each exon of PTEN
+- How many reads don't have a perfect match to the reference genome?
+
+******
+******
+******
+
+
+
 # Summary
 
 We have explored the properties of bam files using Bioconductor. The techniques and types of object we have learnt about will crop-up again-and-again in the course. The vast majority of NGS analysis tools in Bioconductor will use `GenomicRanges` and `TxDb` objects in some form. 
@@ -470,25 +436,3 @@ Due to the high-volume of the dataset, some of the tools and pipelines we use wi
 
 
 
-
-******
-### Exercise (Optional)
-
-- Find the locations of all exons on chromosome 22
-- Create a subset of reads that align to chromosome 22
-    + make sure the sequence names are in the same format
-- What propotion of reads are located outside of exons?
-- Do we have any regions with unusually-high coverage?
-
-```{r echo=FALSE}
-ex.22 <- exons(txdb)
-ex.22 <- keepSeqlevels(ex.22, "chr22")
-seqlevelsStyle(ex.22) <- "Ensembl"
-```
-
-```{r}
-reads.chr22 <- readGAlignments("paired.bam",param=ScanBamParam(which=GRanges("22", IRanges(1, 51304566))))
-reads.exonic <- reads.chr22[reads.chr22 %over% ex.22]
-reads.nonex <- reads.chr22[!reads.chr22 %over% ex.22]
-length(reads.nonex) / length(reads.chr22) 
-```
