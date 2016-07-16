@@ -60,6 +60,22 @@ There are several more file formats designed to represent genomic features. It w
 
 We will now look at how we can represent and access genomic intervals in R and Bioconducto which fit best within the framework of the course. There are also tools outside of R that are extremely powerful; such as [***bedtools***](http://bedtools.readthedocs.io/en/latest/) which are worth considering if you want to go further with NGS analysis.
 
+## Getting started
+
+### Working directory
+
+***Session*** -> ***Set Working Directory*** -> ***Choose Directory***
+
+```{}
+/home/participant/Course_Materials/Day1/
+```
+
+### Template
+
+```{}
+/home/participant/Course_Materials/Day1/Session3-template.Rmd
+```
+
 
 ## Importing aligned data
 
