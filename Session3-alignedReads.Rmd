@@ -5,122 +5,266 @@ date: "10 June 2016"
 output: html_document
 ---
 
-## <a name="align"></a> Alignment
+# Outline
 
-- Locating where each generated sequence came from in the genome
-- Outside the scope of this course
-- *Usually* perfomed automatically by a sequencing service
-- For most of what follows in the course, we will assume alignment has been performed and we are dealing with aligned data
-    + Popular aligners
-    + bwa http://bio-bwa.sourceforge.net/
-    + bowtie http://bowtie-bio.sourceforge.net/index.shtml
-    + novoalign http://www.novocraft.com/products/novoalign/
-    + stampy http://www.well.ox.ac.uk/project-stampy
-    + many, many more.....
+- How aligned reads are represented
+- [Visualising aligned reads in IGV](#igv)
+- [Looking at aligned reads in R and Bioconductor](#bioc)
 
-## Aligned reads - sam
+# Understanding file formats for aligned reads
+
+Unlike most of Bioinfomatics, a *single standard* file format has emerged for aligned reads. Moreoever, this file format is consistent regardless of whether you have DNA-seq, RNA-seq, ChIP-seq... data. 
+
+
+
+## The sam file
 
 - **S**equence **A**lignment/**M**ap (sam) http://samtools.github.io/hts-specs/SAMv1.pdf
-- *Header* lines followed by tab-delimited lines
+- *Header* lines starting with an `@` character, followed by tab-delimited lines
     + Header gives information about the alignment and references sequences used
 - Same format regardless of sequencing protocol (i.e. RNA-seq, ChIP-seq, DNA-seq etc)
 - May contain un-mapped reads
-
-```
-@HD     VN:1.0  SO:coordinate
-@SQ     SN:chr1 LN:249250621
-@SQ     SN:chr10        LN:135534747
-@SQ     SN:chr11        LN:135006516
-```
-
-
-```
-HWI-ST1001:137:C12FPACXX:7:1115:14131:66670     0       chr1    12805   1       42M4I5M *
-0       0       TTGGATGCCCCTCCACACCCTCTTGATCTTCCCTGTGATGTCACCAATATG     
-CCCFFFFFHHGHHJJJJJHJJJJJJJJJJJJJJJJIJJJJJJJJJJJJIJJ     
-AS:i:-28        XN:i:0  XM:i:2  XO:i:1XG:i:4   NM:i:6  MD:Z:2C41C2     YT:Z:UU NH:i:3  
-CC:Z:chr15      CP:i:102518319  XS:A:+  HI:i:0
-
-```
-
-- http://homer.salk.edu/homer/basicTutorial/samfiles.html
-
-
 - Large size on disk; ~100s of Gb
     + Can be manipulated with standard unix tools; e.g. *cat*, *head*, *grep*, *more*, *less*
+- Official specification can be obtained here: -http://samtools.github.io/hts-specs/SAMv1.pdf
 
-## Sam format - key columns
+
+The first part of the header lists the names (`SN`) of the sequences (chromosomes) used in alignment and their length (`LN`). 
+```
+@HD	VN:1.5	SO:coordinate	GO:none
+@SQ	SN:1	LN:249250621	M5:1b22b98cdeb4a9304cb5d48026a85128
+@SQ	SN:2	LN:243199373	M5:a0d9851da00400dec1098a9255ac712e
+@SQ	SN:3	LN:198022430	M5:fdfd811849cc2fadebc929bb925902e5
+@SQ	SN:4	LN:191154276	M5:23dccd106897542ad87d2765d28a19a1
+.....
+.....
 
 ```
-HWI-ST1001:137:C12FPACXX:7:1115:14131:66670     0       chr1    12805   1       42M4I5M *
-0       0       TTGGATGCCCCTCCACACCCTCTTGATCTTCCCTGTGATGTCACCAATATG     
-CCCFFFFFHHGHHJJJJJHJJJJJJJJJJJJJJJJIJJJJJJJJJJJJIJJ     
-AS:i:-28        XN:i:0  XM:i:2  XO:i:1XG:i:4   NM:i:6  MD:Z:2C41C2     YT:Z:UU NH:i:3  
-CC:Z:chr15      CP:i:102518319  XS:A:+  HI:i:0
+
+Next we can define the *read groups* present in the file which we can use to identify which sequencing library, sequencing centre, sample name etc.
+
+```
+@RG	ID:SRR077850	CN:bi	LB:Solexa-42057	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR081675	CN:bi	LB:Solexa-42316	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR080818	CN:bi	LB:Solexa-44770	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR084838	CN:bi	LB:Solexa-42316	PL:illumina	PU:ILLUMINA	SM:NA06984
+@RG	ID:SRR081730	CN:bi	LB:Solexa-42316	PL:illumina	PU:ILLUMINA	SM:NA06984
+.....
+.....
 
 ```
 
-![sam](images/sam-format.png)
+Finally, we have a section where we can record the processing steps used to derive the file
+```
+@PG	ID:MosaikAligner	CL:/share/home/wardag/programs/MOSAIK/bin/MosaikAligner -in /scratch/wardag/NA06984.SRR077850.mapped.illumina.mosaik.CEU.SINGLE.20111114/NA06984.SRR077850.mapped.illumina.mosaik.CEU.SINGLE.20111114.mkb -out
+....
+....
 
+```
+
+Next is a *tab-delimited* section that describes the alignment of each sequence in detail. 
+
+```
+SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC:
+
+
+```
+
+![](images/sam-entry-explained.png)
+
+Column | Official Name | Brief
+------ | -------------- | -----------
+1      | QNAME          | Sequence ID
+2      | FLAG           | Sequence quality expressed as a bitwise flag
+3      | RNAME          | Chromosome
+4      | POS            | Start Position
+5      | MAPQ           | Mapping Quality
+6      | CIGAR          | Describes positions of matches, insertions, deletions w.r.t reference
+7      | RNEXT          | Ref. name of mate / next read
+8      | PNEXT          | Postion of mate / next read
+9      | TLEN           | Observed Template length
+10     | SEQ            | Sequence
+11     | QUAL           | Base Qualities
+
+There can also be all manner of optional tags as extra columns. A common use is the `RG` tag which refers back to the read groups in the header.
+
+Unlike the fastq files, where we had a separate file for forward and reverse reads, the sam file contains all reads. Reads that are paired with each other should appear in consecutive lines immediately after alignment and generation of the same file. Otherwise it is more common for the file to be sorted according to genomic coordinates. The paired reads should share the same sequence ID in the first column (sometimes with a `/1` or `/2` to indicate which is which) and the position of mate columns etc should be consistent.
+
+![](images/pairs-explained.png)
+
+
+
+## Fun with flags!
+
+The *"flags"* in the sam file can represent useful QC information
+  + Read is unmapped
+  + Read is paired / unpaired
+  + Read failed QC
+  + Read is a PCR duplicate (see later)
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+library(GenomicAlignments)
+mybam <- "paired.bam"
+gr <- GRanges("1", IRanges(10000,15000))
+bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=gr),use.names = TRUE)
+```
+
+
+For instance, a particular read has a flag of 163
+
+![](images/flag-highlight.png)
+
+
+### Derivation
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+suppressPackageStartupMessages(library(GenomicAlignments))
+mybam <- "paired.bam"
+bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag"),which=gr),use.names = TRUE)
+flags <- mcols(bam.extra)$flag
+flagMat <- bamFlagAsBitMatrix(flags)
+df <- data.frame(ReadHasProperty = as.logical(flagMat[1,]),Binary=flagMat[1,] ,MultiplyBy=2^(0:10))
+knitr::kable(df)
+```
+
+Value of flag is given by `r paste(df$Binary,df$MultiplyBy,sep="x",collapse=" + ")` = `r sum(df$Binary * t(df$MultiplyBy))`
+
+See also
+
+- https://broadinstitute.github.io/picard/explain-flags.html
+
+## Have a Cigar!
+
+![](images/cigar-highlight.png)
+
+The ***CIGAR*** string is a way of encoding the match between a given sequence and the position it has been assigned in the genome. It is comprised by a series of letters and numbers to indicate how many consecutive bases have that mapping.
+
+
+ 
+ Code  | Description
+------------- | -------------
+M  | alignment match
+I  | insertion
+D  | deletion
+N  | skipped
+S  | soft-clipping
+H  | hard-clipping
+
+
+e.g.
+
+- `68M`
+    + 100 bases matching the reference
+- `1S67M`
+    + 1 soft-clipped read followed by 67 matches
+- `15M87N70M90N16M`
+    + 15 matches following by 87 bases skipped followed by 70 matches etc.
+
+## Other references:-
+
+- http://genome.sph.umich.edu/wiki/SAM
+- http://davetang.org/wiki/tiki-index.php?page=SAM
 - http://samtools.github.io/hts-specs/SAMv1.pdf
-    + Read name
-    + Chromosome
-    + Position
-    + Mapping quality
-    + etc...
+ 
+## samtools
 
-## <a name="igv"></a> Viewing aligned reads in IGV
+`samtools` is one of the most-popular ngs-related tools and has a wealth of tools for dealing with files in `.bam` and `.sam` format. If you are going to start processing your own data, the chances are you'll be using `samtools` a lot. Typing `samtools` in a terminal will give a quick overview of the functions available, and importantly, the version number of the software.
 
-- Once our bam files have been *indexed* we can view them in IGV
-- This is **highly recommended**
-- Check-out [our colleagues' course](http://mrccsc.github.io/IGV_course/) for more details
+```{}
+samtools 
+```
 
-![igv](images/igv_screenshot1.png)    
-    
+More information about a particular command within samtools can be displayed by printing `samtools` followed by the name of the command. For example, the `samtools view` command can convert a `.sam` file into a compressed version called a `.bam` file. This is a very-common step in an NGS workflow.
 
+```{}
+samtools view
+```
 
-## Aligned reads - bam
+So a `.bam` file is
 
 - *Exactly* the same information as a sam file
 - ..except that it is *binary* version of sam
 - compressed around x4
-- Attempting to read will print garbage to the screen
-- bam files can be indexed
-    + Produces an index file with the same name as the bam file, but with **.bai** extension
+- However, attempting to read with standard unix tools `cat`, `head` etc will print garbage to the screen
 
+When viewing a `.sam` or `.bam`, we can choose to just view the *header* information
+
+```{}
+samtools view -H paired.bam
 ```
-samtools view mysequences.bam | head
+
+The `samtools view` command needs to be used with a bit of care if not selecting the `-H` option. Unless directed otherwise, `samtools` will print the entire contents of the file to the screen ("the standard output"). We usually "*pipe*" the output to another unix command, such as `head`
+
+```{}
+samtools view paired.bam | head
 ```
 
-- N.B The sequences can be extracted by various tools to give *fastq*
+```{}
+samtools view 1:1-100000 paired.bam
+```
+
+### Other useful samtools commands
+
+```{}
+samtools sort
+```
 
 
-## Post-processing of aligned files
-
-- PCR duplicates
-    + Such reads are *marked* but not usually removed from the data
-    + Most downstream methods will ignore such reads
-    + Typically, [***picard***](http://broadinstitute.github.io/picard/) is used 
-    
 - Sorting
+    + The reads in a newly-aligned `.sam` file will probably be sorted according to the order they were generated by the sequencer
     + Reads can be sorted according to genomic position
-        + [***samtools***](http://www.htslib.org/)
+    + Which allows us to access the file more easily
+    
+```{}
+
+samtools index
+```
+
+
 - Indexing
     + Allow efficient access
-        + [***samtools***](http://www.htslib.org/)
+    + Producing a file `.bai` in the same directory
+
+```{}
+samtools flagstat
+```
+
+- Collates quality control information from the *"flags"*
+
+```
+$ samtools flagstat paired.bam
+12581680 + 0 in total (QC-passed reads + QC-failed reads)
+177715 + 0 duplicates
+12581680 + 0 mapped (100.00%:-nan%)
+12581680 + 0 paired in sequencing
+6291126 + 0 read1
+6290554 + 0 read2
+12581680 + 0 properly paired (100.00%:-nan%)
+12581680 + 0 with itself and mate mapped
+0 + 0 singletons (0.00%:-nan%)
+0 + 0 with mate mapped to a different chr
+0 + 0 with mate mapped to a different chr (mapQ>=5)
+```
+
+Typically, you will be dealing with `.bam` files that are
+
+- indexed
+- sorted
+- have had *PCR duplicates* marked
 
 
-## Post-processing of aligned files
+## About PCR duplicates...
 
 - Marking of PCR duplicates
     + PCR amplification errors can cause some sequences to be over-represented
     + Chances of any two sequences aligning to the same position are *unlikely*
     + Caveat: obviously this depends on amount of the genome you are capturing
 
-```{r echo=FALSE,cache=TRUE}
+```{r echo=FALSE,message=FALSE,warning=FALSE}
 suppressPackageStartupMessages(library(GenomicAlignments))
 mybam <- "paired.bam"
-dupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = TRUE)))
+gr <- GRanges("1",IRanges(1,536870912))
+dupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = TRUE),which=gr))
 #nodupReads <- readGAlignments(file=mybam,param=ScanBamParam(scanBamFlag(isDuplicate = FALSE)))
 suppressPackageStartupMessages(library(ggbio))
 tb <- table(start(dupReads))
@@ -137,61 +281,28 @@ mcols(dupReads)$pcrDuplicate <- pcrDuplicate
 autoplot(dupReads,aes(fill=pcrDuplicate)) + scale_fill_manual(values = c("black","red"))
 ```
 
+- Such reads are *marked* but not usually removed from the data
+- Most downstream methods will ignore such reads
+- Typically, [***picard***](http://broadinstitute.github.io/picard/) is used 
+
+Picard is another very-common tool in NGS analysis with lots of conversion, manipulation tools. If you are seriously considering getting into NGS analysis, it is worth getting to know.
+
+```{}
+java -jar $PICARD -h
+```
+
+
+
+# <a name="igv"></a> Viewing aligned reads in IGV
+
+- Once our bam files have been *indexed* we can view them in IGV
+- This is **highly recommended**
+- Check-out [our colleagues' course](http://mrccsc.github.io/IGV_course/) for more details
+
+![igv](images/igv_screenshot1.png)    
     
 
-## <a name="funwithflags"></a> Dr Mark Dunning presents 'Fun with Flags'
-
-## Sam file flags
-
-- Represent useful QC information
-    + Read is unmapped
-    + Read is paired / unpaired
-    + Read failed QC
-    + Read is a PCR duplicate (see later)
-
-
-
-## Derivation
-
-```{r echo=FALSE,cache=TRUE}
-suppressPackageStartupMessages(library(GenomicAlignments))
-mybam <- "paired.bam"
-bam.extra <- readGAlignments(file=mybam,param=ScanBamParam(what=c("flag")))
-flags <- mcols(bam.extra)$flag
-flagMat <- bamFlagAsBitMatrix(flags)
-df <- data.frame(ReadHasProperty = as.logical(flagMat[1,]),Binary=flagMat[1,] ,MultiplyBy=2^(0:10))
-knitr::kable(df)
-```
-
-Value of flag is given by `r paste(df$Binary,df$MultiplyBy,sep="x",collapse=" + ")` = `r sum(df$Binary * t(df$MultiplyBy))`
-
-See also
-
-- https://broadinstitute.github.io/picard/explain-flags.html
-
-## samtools flagstat
-
-- Useful *command-line* tool as part of **samtools**
-
-```
-$ samtools flagstat NA19914.chr22.bam
-2109857 + 0 in total (QC-passed reads + QC-failed reads)
-0 + 0 secondary
-0 + 0 supplimentary
-40096 + 0 duplicates
-2064356 + 0 mapped (97.84%:-nan%)
-2011540 + 0 paired in sequencing
-1005911 + 0 read1
-1005629 + 0 read2
-1903650 + 0 properly paired (94.64%:-nan%)
-1920538 + 0 with itself and mate mapped
-45501 + 0 singletons (2.26%:-nan%)
-5134 + 0 with mate mapped to a different chr
-4794 + 0 with mate mapped to a different chr (mapQ>=5)
-
-```
-
-# Processing with R and Bioconductor
+# <a name="bioc"></a> Processing with R and Bioconductor
 
 To understand how to process aligned reads with Bioconductor, we need to introduce a key data-type.
 
@@ -206,34 +317,26 @@ To understand how to process aligned reads with Bioconductor, we need to introdu
     + one of the aims of Bioconductor is to encourage core object-types and functions
     + `IRanges` is an example of this
 
-## IRanges is crucial for many packages
+`IRanges` is crucial for many packages. The [landing page](http://bioconductor.org/packages/release/bioc/html/IRanges.html) for the package lists just how many packages depend on it. If you want to find-out more, or look at the technical details, check out the [PLoS Computational Biology paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003118).
 
-Just some of the packages that *depend* on [IRanges](http://bioconductor.org/packages/release/bioc/html/IRanges.html)
-
-![iranges-depends](images/iranges-depends.png)
-
-## IRanges paper
-
-![bioc paper](images/ranges-paper.png)
 
 ## Example
 
 Suppose we want to capture information on the following intervals
 
 ```{r echo=FALSE,message=FALSE}
+library(RColorBrewer)
 library(ggbio)
 ir <- IRanges(start = c(7,9,12,14,22:24), 
               end=c(15,11,13,18,26,27,28))
-pl <- autoplot(ir,fill=brewer.pal(n=length(ir),"Set1"))+ geom_vline(x=seq(1,40,by=1),lty=2)
+pl <- autoplot(ir,fill=brewer.pal(n=length(ir),"Set1"))+ geom_vline(xintercept = seq(1,40,by=1),lty=2)
 library(gridExtra)
 pl
 ```
 
-## Creating the object
-
 - The `IRanges` function from the `IRanges` package is used to *construct* a new object
     + think `data.frame`, `vector` or `matrix` 
-    + it's structure is quite unlike anything we've seen before
+    + it's structure is quite unlike anything we've seen so far
     
 ```{r}
 library(IRanges)
@@ -243,7 +346,6 @@ end=c(15,11,13,18,26,27,28))
 str(ir)
 ```
 
-## Display the object
 
 - Typing the name of the object will print a summary of the object to the screen
     + useful compared to display methods for data frames, which print the whole object
@@ -253,9 +355,8 @@ str(ir)
 ir
 ```
 
-## Adding metadata
 
-We can give our ranges names
+Additionally, we can give our ranges names
 ```{r}
 ir <- IRanges(
 start = c(7,9,12,14,22:24), 
@@ -264,8 +365,7 @@ ir
 ```
 
 
-## Ranges as vectors
-- `IRanges` can be treated as if they were *vectors*
+- So `IRanges` can be treated as if they were *vectors*
     + no new rules to learn
         + if we can subset vectors, we can subset ranges
     + vector operations are efficient
@@ -278,7 +378,7 @@ ir[1:2]
 ir[c(2,4,6)]
 ```
 
-## Accessing the object
+
 - If we want to extract the properties of the object, the package authors have provided some useful functions
     + we call these *accessor* functions
     + We don't need to know the details of how the objects and implemented to access the data
@@ -297,129 +397,134 @@ width(ir)
     + i.e. `TRUE` or `FALSE`
 - Such a vector can be derived using a comparison operator
     + `<`, `>`, `==`
-
-```{r}
-width(ir) == 5
-ir[width(ir)==5]
-```
-
-
-## More-complex subsetting
-
-- Multiple logical vectors can be combined using `&` (and), `|` (or)
-    + eg intervals that start after 10, **and** before 27
     
-```{r}
-ir[end(ir) < 27]
-ir[start(ir) > 10 & end(ir) < 27]
+******
+### Exercise
+From the object we have just created:-
 
-```
+- What ranges have a width of 5?
+- What ranges have a start position greater than 10
+- What ranges have a start position greater than 10, and an end position less than 27?
+
+******
 
 
-# Manipulating Ranges
 
-## Lots of common use-cases are implemented
+## Manipulating Ranges
+
+When it comes to manipulating intervals, lots of common use-cases are implemented
 ![operations](images/ranges-fns.png)
 
 
-## Shifting
+### Shifting
 e.g. sliding windows
+
+```{r echo=FALSE}
+p2 <- autoplot(shift(ir,5),fill=brewer.pal(n=length(ir),"Set1")) +geom_vline(xintercept=seq(1,40,by=1),lty=2)
+tracks(pl, p2)
+```
+
 
 ```{r}
 ir
 shift(ir, 5)
 ```
 
-## Shifting
-
+The Size of shift doesn’t need to be constant
 
 ```{r echo=FALSE}
-p2 <- autoplot(shift(ir,5),fill=brewer.pal(n=length(ir),"Set1")) +geom_vline(x=seq(1,40,by=1),lty=2)
+p2 <- autoplot(shift(ir,7:1),fill=brewer.pal(n=length(ir),"Set1"))+geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
-## Shifting
-
-Size of shift doesn’t need to be constant
 
 ```{r}
-ir
 shift(ir, 7:1)
 ```
 
-## Shifting
 
-```{r echo=FALSE}
-p2 <- autoplot(shift(ir,7:1),fill=brewer.pal(n=length(ir),"Set1"))+geom_vline(x=seq(1,40,by=1),lty=2)
-tracks(pl, p2)
-```
 
-## Resize
+### Resize
 
 e.g. trimming reads
 
-```{r}
-ir
-resize(ir,3)
-```
-## Resize
-
 ```{r echo=FALSE}
-p2 <- autoplot(resize(ir,3),fill=brewer.pal(n=length(ir),"Set1")) + geom_vline(x=seq(1,40,by=1),lty=2)
+p2 <- autoplot(resize(ir,3),fill=brewer.pal(n=length(ir),"Set1")) + geom_vline(xintercept=seq(1,40,by=1),lty=2)
 tracks(pl, p2)
 ```
 
+```{r}
+resize(ir,3)
+```
+
+******
+### Exercise
+
+Explain the behaviour of the following:-
+
+```{r}
+resize(ir,3)
+resize(ir,3,fix = "start")
+resize(ir,3,fix = "end")
+resize(ir,3,fix = "center")
+
+```
 
 
-## Coverage
+
+******
+
+### Coverage
 
 - Often we want to know how much sequencing we have at particular positions
     + i.e. depth of coverage
 
-`coverage` returns a *Run Length Encoding* - an efficient representation of repeated values
+`coverage` returns a *Run Length Encoding* - an efficient representation of repeated values. At a whole-chromosome level, we have a large stretch of positions with the same coverage level. It would be rather inefficient to store the data in a vector. Although we can convert between `Rle`objects and vectors.
 
 ```{r}
 cvg <- coverage(ir)
 cvg
 as.vector(cvg)
-
 ```
 
-## Coverage Results
+Often we might want to know what positions exceed a certain coverage level. This we can do using the `slice` function.
 
-```{r echo=FALSE}
-p2 <- autoplot(coverage(ir),binwidth=1) + ggtitle("Coverage")
-tracks(pl,p2)
+```{r}
+slice(cvg,2)
 ```
 
 ## Overlapping
-e.g. counting
-- The terminology of overlapping defines a *query* and a *subject*
-![overlaps](images/ranges-paper-overlaps.png)
 
-## Overlaps
+A large set of `IRanges` functionality is designed to deal with overlapping queries. Such operations are common in NGS analysis so we need to have an efficient way of performing them. You will probably come across such operations without even realising it.
 
-- lets start be defining a new set of ranges
+- What reads overlap with a particular genomic region?
+- What genes are affected by this particular copy-number loss / gain?
+- How many variants are in exonic regions?
+- For a given set of variants, what genes do they overlap with?
+- How many variants does my gene of interest have?
+
+The terminology of overlapping defines a *query* and a *subject*
+![](images/ranges-paper-overlaps.png)
+
+
+- To illustrate lets start be defining a new set of ranges
 
 ```{r}
-ir3 <- IRanges(start = c(1, 14, 27), end = c(13,
+ir2 <- IRanges(start = c(1, 14, 27), end = c(13,
     18, 30),names=c("X","Y","Z"))
-ir3
-
+ir2
 ```
-## Overlaps
+
 
 ```{r echo=FALSE}
-p2 <- autoplot(ir3)
+p2 <- autoplot(ir2)
 tracks(pl,p2)
 
 ```
 
 
-## Overlaps
 
-
-- The `findOverlaps` function is used for overlap
+- The `findOverlaps` function can be used for overlap
     + the output isn't immediately obvious
     + length of output is the number of *hits*
         + each hit is defined by a subject and query index
@@ -427,7 +532,7 @@ tracks(pl,p2)
     
 ```{r}
 query <- ir
-subject <- ir3
+subject <- ir2
 ov <- findOverlaps(query, subject)
 ov
 ```
@@ -454,64 +559,13 @@ query[queryHits(ov)[1]]
 subject[subjectHits(ov)[1]]
 ```
 
-
-```{r echo=FALSE, fig.height=3}
-fll <- rep("white", length(ir))
-fll[queryHits(ov)[1]] <- "black"
-
-qplot <- autoplot(ir,fill=fll)+geom_vline(x=seq(1,40,by=1),lty=2) + ggtitle("Query")
-
-fll <- rep("white", length(ir3))
-fll[subjectHits(ov)[1]] <- "black"
-
-subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2) + ggtitle("Subject")
-tracks(qplot, subplot,main="Query (above) and Subject (below)")  
-```
-
-## Overlap example - Second hit
+It is more common to use the `%over%` shortcut , which tells us (via a `TRUE` or `FALSE`) if every range in the query overlaps with the subject or not. The result can then be used for subset operations.
 
 ```{r}
-query[queryHits(ov)[2]]
-subject[subjectHits(ov)[2]]
+ir %over% ir2
+ir[ir %over% ir2]
 ```
 
-
-```{r echo=FALSE,fig.height=3}
-fll <- rep("white", length(ir))
-fll[queryHits(ov)[2]] <- "black"
-
-qplot <- autoplot(ir,fill=fll)+ geom_vline(x=seq(1,40,by=1),lty=2,main="Query") + ggtitle("Query")
-
-fll <- rep("white", length(ir3))
-fll[subjectHits(ov)[2]] <- "black"
-
-subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2,main="Subject") + ggtitle("Subject")
-tracks(qplot, subplot,main="Query (above) and Subject (below)")  
-```
-
-## Overlap example - Third hit
-
-```{r}
-query[queryHits(ov)[3]]
-subject[subjectHits(ov)[3]]
-```
-
-
-```{r echo=FALSE,fig.height=3}
-fll <- rep("white", length(ir))
-fll[queryHits(ov)[3]] <- "black"
-
-qplot <- autoplot(ir,fill=fll)+ geom_vline(x=seq(1,40,by=1),lty=2,main="Query") + ggtitle("Query")
-
-fll <- rep("white", length(ir3))
-fll[subjectHits(ov)[3]] <- "black"
-
-subplot <- autoplot(ir3,fill=fll) +geom_vline(x=seq(1,40,by=1),lty=2,main="Subject") + ggtitle("Subject")
-tracks(qplot, subplot,main="Query (above) and Subject (below)")  
-```
-
-
-## Counting
 
 - If we just wanted to count the number of overlaps for each range, we can use `countOverlaps`
     + result is a vector with length the number of intervals in query
@@ -519,48 +573,100 @@ tracks(qplot, subplot,main="Query (above) and Subject (below)")
     
 ```{r}
 countOverlaps(query,subject)
+
 ```
-- Order of arguments is important
+
+- The order of arguments is important
+
 ```{r}
 countOverlaps(subject,query)
 ```
 
-
-
-## Intersection
-
 - Rather than counting, we might want to know which positions are in common
 ```{r}
-intersect(ir,ir3)
-
+intersect(ir,ir2)
 ```
-
-```{r echo=FALSE}
-pl2 <- autoplot(ir3)
-p2 <- autoplot(intersect(ir,ir3))
-tracks(pl,pl2,p2)
-
-```
-
-## Subtraction
 
 - Or which positions are missing
 
 ```{r}
-setdiff(ir,ir3)
+setdiff(ir,ir2)
 
 ```
 
-```{r echo=FALSE}
-p2 <- autoplot(setdiff(ir,ir3))
-tracks(pl,pl2,p2)
+So far the objects we have been dealing with have been located on the same arbitrary linear scale. When dealing with genomic data, we'll want to deal with intervals that are located on different chromosomes. The next object-type gives us a way of handling this.
 
+## Introducing GRanges
+
+- `GRanges` are a special kind of `IRanges` object used to manipulate genomic intervals in an efficient manner
+- We can define a 'chromosome' for each range
+    + referred to as seqnames
+- we have the option to define a strand
+- need to supply a ranges object, as we saw before
+- operations on ranges respect the chromosome labels
+
+```{r message=FALSE}
+library(GenomicRanges)
+gr <- GRanges(c("A","A","A","B","B","B","B"), ranges=ir)
+gr
+```
+
+The object has gained a new variable `seqnames` which can be queried using the function `seqnames`.
+
+```{r}
+seqnames(gr)
+table(seqnames(gr))
 ```
 
 
+The operations we just described can also be applied to `GRanges` objects and it will respect the chromosome information
+
+```{r}
+resize(gr,4)
+coverage(gr)
+
+gr2 <- GRanges("A", ir2)
+gr2
+gr[gr %over% gr2]
+```
 
 
+The objects can be really powerful when we can add extra metadata
 
+- `mcols` can be set to be a data frame with one row for each range
+- Counts, gene names
+    + anything you like!
+
+```{r}
+mcols(gr) <- data.frame(Count = runif(length(gr)), Gene =sample(LETTERS,length(gr)))
+gr
+```
+
+The "counts" we have created here can be used in the subset operation
+
+```{r}
+gr[mcols(gr)$Count > 0.5]
+```
+
+
+## Representing a gene
+
+- Creating an object to represent a particular gene is easy if we know its coordinates
+    + we will look at representing the full gene structure later
+        + e.g. exons, introns etc
+
+```{r}
+mygene <- GRanges("chr17", ranges=IRanges(7577851, 7598063))
+mygene
+```
+
+At this point `IRanges` and `GRanges` are probably still a bit abstract, so we will demonstrate their utility by looking at a few examples.
+
+## Representing aligned data
+
+We can import reads from a `.bam` file into Bioconductor. However, to set expectations, we should probably say we are not going to be processing the reads from a whole-genome sequencing run in this manner. 
+
+A package that can be used to parse a bam file is `GenomicAlignments`
 
 ```{r}
 library(GenomicAlignments)
@@ -568,48 +674,236 @@ mybam <- readGAlignments("paired.bam")
 mybam
 ```
 
-How many reads have aligned to each chromosome
+You should see that the object created, `mybam` is displayed in a similar style to the `IRanges` and `GRanges` we have just been dealing with.
+
+******
+### Exercise
+
+- How many reads are in this bam file?
+- How many reads have aligned to each chromosome?
+
+******
+
+Once we have our reads in this form, we can start to play with some of the functions that we just learnt about. For example, a coverage vector is quite straightforward to obtain:-
+
+```{r}
+bamcov <- coverage(mybam)
+bamcov
+```
+
+As we saw before, the coverage is calculated on each chromosome separately. To access the coverage for a particular chromosome we use the `$` operator.
+
+```{r}
+bamcov$"20"
+```
+
+******
+### Exercise
+- What is the mean coverage on chromosome 20? 
+- What is the maximum? 
+- How much of the chromosome has zero coverage?
+- What regions are covered by more than 50 reads
+
+******
+
+## Overlapping genes with reads
+
+Rather than looking at reads across the genome, we might be itching to look at that favourite gene of ours.
+
+```{r}
+mygene <- GRanges("chr17", ranges=IRanges(7577851, 7598063))
+mygene
+```
+
+The `countOverlaps` function introduced earlier might be an ideal candidate for this kind of investigation.
+
+```{r}
+countOverlaps(mygene, mybam)
+```
+
+What is this this warning message telling us? It's basically saying that the sequence names are not compatible
 
 ```{r}
 table(seqnames(mybam))
+table(seqnames(mygene))
 ```
+
+
+Before attempting an overlap between two different set of ranges, we need to make sure that there sequences names are compatible. One solution is to be more careful when creating our ranges.
+
+```{r}
+mygene <- GRanges("17", ranges=IRanges(7577851, 7598063))
+countOverlaps(mygene, mybam)
+```
+
+The convenience function `seqlevelsStyle` has been written to help us understand what covention has been used to name the chromosomes
+
+```{r}
+mygene <- GRanges("chr17", ranges=IRanges(7577851, 7598063))
+seqlevelsStyle(mygene)
+seqlevelsStyle(mybam)
+seqlevelsStyle(mygene) <- "NCBI"
+countOverlaps(mygene, mybam)
+```
+
+If we want the actual reads themselves, we can use the `%over%` shortcut from earlier:-
+
+```{r}
+mybam[mybam %over% mygene]
+```
+
+Later we will revisit how to overlap reads with a particular gene of interest, as importing reads mapping to the entire genome and subsetting to our region of interest is not optimal
+
+## Investigating mapping quality
+
+For efficiency, the `readGAlignments` function imports a minimal amount of information from the file. From the specification of the `.sam `/ `.bam` file, there are many other useful pieces of information contained in the file. We can read more fields by making use of the `ScanBamParam` function. For instance, we might want to know the ID, sequence, mapping quality and "flag" for each read. We could do this in the following manner:-
 
 ```{r}
 bam <- readGAlignments("paired.bam",param=ScanBamParam(what=c("seq","mapq","flag")),use.names = TRUE)
+bam
 ```
 
+The command takes longer to run, but we get more detail on each of the reads. The extra fields make up the metadata for each reads and can be accessed using the `mcols` function that we met earlier. If we save this metadata as an object, we can use the usual `$` operator to access the columns
 
 ```{r}
-mcols(bam)
-hist(mcols(bam)$mapq)
+meta <- mcols(bam)
+meta
+meta$seq
 ```
 
-```{r}
-table(mcols(bam)$flag)
-dupReads <- bam[mcols(bam)$flag==1024]
+******
+### Exercise
 
+- What is the lowest mapping quality observed in the data?
+- Produce a histogram of the mapping qualities
+    + you should get something like...
+    
+```{r echo=FALSE}
+hist(meta$mapq)
 ```
 
+******
+
+The exact definition of mapping quality will vary according to which aligner was used, or maybe even the version of the aligner. If we wish to impose such a threshold to do some filtering, we can do the following:-
+
 ```{r}
-flags <- mcols(bam)$flag
-flagMat <- bamFlagAsBitMatrix(flags)
+toremove <- which(meta$mapq < 5)
+length(toremove)
+bam.filt <- bam[-toremove]
+bam.filt
+length(bam.filt) / length(bam)
+```
+
+Another field we might want to pay attention to is the `flag` of each read.
+
+## Fun with flags!
+
+
+******
+### Exercise
+
+- What categories of read to we have?
+HINT:-
+- a vector of all flags can be obtained by `meta$flag`
+- https://broadinstitute.github.io/picard/explain-flags.html
+    
+******
+
+Depending on the kind of sequencing we have performed, we might be cautious about reads that are flagged as PCR or optical duplicates. Most downstream analysis tools will ignore these, but we rarely remove them altogether from the file.
+
+The value of the flag is a combination of different quality indicators, so a PCR duplicate can be indicated by many different values. In our case, we don't have many different flags, so it is not too much work to identify all duplicates.
+
+```{r}
+dups <- which(meta$flag %in% c(1107,1123,1171,1187))
+length(dups)
+bam[dups]
+```
+
+Another option is to produce a convenient matrix which tabulates what flags have been set for each read. From this table we can identify the duplicates
+
+```{r}
+flagMat <- bamFlagAsBitMatrix(meta$flag)
+dim(flagMat)
 head(flagMat)
-table(flagMat[,3])
+table(flagMat[,11])
 ```
+
+If we wanted to ignore the duplicates from the start, we can infact tell `readGAlignments` to ignore them by making use of the `scanBamFlag` option
+
+```{r eval=FALSE}
+bam.nodups <- readGAlignments(file="paired.bam", param=ScanBamParam(flag=scanBamFlag(isDuplicate = FALSE)))
+```
+
+Another situation where we might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can *very* quickly jump to a particular genomic region
+
+```{r}
+system.time(mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene)))
+mygene.reads
+```
+
+The region filer can be used in conjuction with the `what` argument to `ScanBamParam` function to provide a detailed picture of the reads for your gene
+
+```{r}
+mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene, what=c("seq","mapq","flag","qual","isize")))
+mygene.reads
+```
+
+
+## Pre-built databases of gene coordinates
+
+Aside from the many useful software packages, Bioconductor also provides numerous annotation resources that we can utilise in our analysis. Firstly, we have a set of organism-level packages that can translate between different types of identifer. The package for humans is called `org.Hs.eg.db`. The advantage of such a package, rather than services such as biomaRt, is that we can do queries offline. The packages are updated every 6 months, so we can always be sure of what version of the relevant databases are being used.
 
 ```{r}
 library(org.Hs.eg.db)
+org.Hs.eg.db
 ```
 
+There are several types of "key" we can use to make a query, and we have to specify one of these names. 
+
 ```{r}
-columns(org.Hs.eg.db)
 keytypes(org.Hs.eg.db)
 ```
 
+For the given keytype we have chosen, we can also choose what data we want to retrieve. We can think of these as columns in a table, and the pre-defined values are given by:-
+
+```{r}
+columns(org.Hs.eg.db)
+```
+
+
+For example, if we want to know the *"Entrez"* ID for the gene BRCA1, we can do:-
 
 ```{r}
 eg <- select(org.Hs.eg.db, keys="BRCA1", keytype = "SYMBOL",columns = "ENTREZID")
+eg
 ```
+
+But we're not restricted to just one type of information to return
+
+```{r}
+eg <- select(org.Hs.eg.db, keys=c("BRCA1","PTEN"), keytype = "SYMBOL",columns = c("ENTREZID","ENSEMBL"))
+
+```
+
+You should see that the above command prints a message to the screen:- `'select()' returned 1:many mapping between keys and columns`. This is not an error message and R has still been able to generate the output requested. 
+
+```{r}
+eg
+```
+
+In this case, we have "many" (well, two) values of `ENSEMBL` for the gene `PTEN`. In practice this means we probably want to think carefully about merging this data with other tables.
+
+******
+### Exercise
+
+
+******
+
+You might expect to be able to retrieve information about the coordinates for a particular gene. This was supported until recently, but the recommended approach now is to use another class of packages which describe the structure of genes in more detail. 
+
+The packages with the prefix `TxDb....` represent the structure of all genes for a given organism in an efficient manner. For humans, we can use the package `TxDb.Hsapiens.UCSC.hg19.knownGene` to tell us about transcripts for the `hg19` build of the genome. The package was generated using tables from the [UCSC genome browser](https://www.genome.ucsc.edu/)
+
+As with the `org.Hs.eg.db` package we can load the package and inspect the kind of mappings available to us.
 
 ```{r}
 library(TxDb.Hsapiens.UCSC.hg19.knownGene)
@@ -618,15 +912,40 @@ columns(txdb)
 keytypes(txdb)
 ```
 
+You'll see that all the mappings are regarding the coordinates and IDs of various genomic features. There is only one type of identifier used, in this case `Entrez ID`. If we know a genes Entrez ID, we can get the exon coordinates with the following query.
+
 ```{r}
 mygene <- select(txdb, keys="672", columns = c("EXONCHROM","EXONSTART","EXONEND","EXONSTRAND"),keytype="GENEID")
+mygene
 ```
 
+
+******
+### Exercise
+
+- Using the results from the previous exercise, retrieve the exon coordinates for the gene `PTEN`
+- How about all transcripts for PTEN and BRCA1?
+
+******
+
+It is useful to be able to retrive the coordinates in this manner. However, we should now be familiar with the way intervals can be represented using `GRanges`. We have the ability to create a `GRanges` object from the result:- 
+
+```{r}
+my.gr <- GRanges(mygene$EXONCHROM, IRanges(mygene$EXONSTART,mygene$EXONEND))
+my.gr
+```
+
+
+
+A powerful feature of the transcript database packages is to allow the user to create a `GRanges` representation of *all* exons / transcripts for a particular organism. The function to do this is `exonsBy` (or equivalently `transcriptsBy`). The result is a *list* object that can be subset according to Entrez ID. 
 
 ```{r}
 allex <- exonsBy(txdb, "gene")
 mygene <- allex[["672"]]
+mygene
 ```
+
+We are almost in a position to overlap our reads with the `GRanges` representation of our gene. First of all, we need the same trick from before to make sure the chromosome names are compatible
 
 ```{r}
 seqlevelsStyle(mybam)
@@ -635,12 +954,30 @@ seqlevelsStyle(mygene) <- "Ensembl"
 mygene
 ```
 
-```{r}
-mybam <- keepSeqlevels(mybam, "17")
-```
+Furthermore, since we know we are only interested in the reads from chromosome 17, we could subset the reads accordingly.
 
 
+
 ```{r}
-mybam[mybam %over% mygene]
+mybam.chr17 <- keepSeqlevels(mybam, "17")
 ```
+
+```{r}
+mybam.chr17[mybam.chr17 %over% mygene]
+```
+
+NOTE:- it also seems that the Mitochondial sequence is a different length in the reference that these reads were aligned to, compared to the transcript database. It may seem like a trivial difference, but will cause an error if we don't perform the subset.
+
+```{}
+Error in mergeNamedAtomicVectors(seqlengths(x), seqlengths(y), what = c("sequence",  : 
+  sequence MT has incompatible seqlengths:
+  - in 'x': 16569
+  - in 'y': 16571
+```
+
+```{r}
+countOverlaps(mygene,mybam.chr17)
+```
+
+# References
 
