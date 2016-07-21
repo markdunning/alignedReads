@@ -164,7 +164,11 @@ Rather than dealing with `.sam` files, we usually analyse a `.bam` file.
  
 ## samtools
 
+If you want to try any of these commands, click the link to the ***CRUK Docker*** on the Desktop
+
 `samtools` is one of the most-popular ngs-related software suites and has a wealth of tools for dealing with files in `.bam` and `.sam` format. If you are going to start processing your own data, the chances are you'll be using `samtools` a lot. Typing `samtools` in a terminal will give a quick overview of the functions available, and importantly, the version number of the software.
+
+
 
 ```{}
 samtools 
