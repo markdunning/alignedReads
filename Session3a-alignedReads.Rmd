@@ -154,7 +154,7 @@ H  | hard-clipping
 e.g.
 
 - `68M`
-    + 100 bases matching the reference
+    + 68 bases matching the reference
 - `1S67M`
     + 1 soft-clipped read followed by 67 matches
 - `15M87N70M90N16M`
