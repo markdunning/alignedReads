@@ -7,56 +7,12 @@ output: html_document
 
 # Outline
 
-- introducing the `.bed` format
 - exploring a `.bam` file using Bioconductor
 - useful objects for dealing with genomic intervals
 - overlapping set of regions
 
-# File formats for genomic intervals
-
-We've already introduced several file formats:-
-
-- `.fastq` for raw reads with qualities
-- `.sam` for sequence alignments 
-- `.bam` as compressed version of `.sam`
-
-There are several more file formats designed to represent genomic features. It will be useful to introduce these before looking at how to access aligned reads in R.
-
-- `.bed`
-
-<div id="BED3" align="center">
-  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337209/BED3.png" alt="">
-</div>  
-
-- Simple format
-- 3 tab-separated columns
-- Chromosome, start, end
-- Can be extended to `BED6`
-
-<div id="BED3" align="center">
-  <img src="https://s3.amazonaws.com/media-p.slid.es/uploads/243093/images/1337158/bed6.png" alt="">
-</div>  
-
-
-- As before Chromosome, start, end
-- Identifier
-- Score
-- Strand
-    + or "." or strandless
-    
-
-## More definitions here
-
-- UCSC file formats
-    + https://genome.ucsc.edu/FAQ/FAQformat.html
-- IGV file formats
-    + https://www.broadinstitute.org/igv/FileFormats
-- Sanger (GFF)
-    + https://www.sanger.ac.uk/resources/software/gff/spec.html
-
-
  
-# <a name="bioc"></a> Processing with R and Bioconductor
+# <a name="bioc"></a> Processing aligned reads with R and Bioconductor
 
 We will now look at how we can represent and access genomic intervals in R and Bioconducto which fit best within the framework of the course. There are also tools outside of R that are extremely powerful; such as [***bedtools***](http://bedtools.readthedocs.io/en/latest/) which are worth considering if you want to go further with NGS analysis.
 
@@ -246,7 +202,7 @@ mybam[mybam %over% mygene]
 
 ## Extracting a subset of reads
 
-We might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can *very* quickly jump to a particular genomic region. Notice that this (should) give the same number of reads as before when we did a `countOverlaps` operation.
+We might want to focus on a subset of reads from the start, is when we want to analyse a particular gene. Provided that the `.bam` file has been indexed (creating a `.bam.bai` file in the same directory), we can *very* quickly jump to a particular genomic region. Notice that this (*should*) give the same number of reads as before when we did a `countOverlaps` operation.
 
 ```{r}
 system.time(mygene.reads <- readGAlignments(file="paired.bam",param=ScanBamParam(which=mygene)))
@@ -358,10 +314,17 @@ my.gr
 
 A powerful feature of the transcript database packages is to allow the user to create a `GRanges` representation of *all* exons / transcripts for a particular organism. The function to do this is `exonsBy` (or equivalently `transcriptsBy`). The result is a *list* object that can be subset according to Entrez ID. 
 
-```{r message=FALSE}
+```{r eval=FALSE}
 allex <- exonsBy(txdb, "gene")
 mygene <- allex[["672"]]
 mygene
+```
+
+```{r echo=FALSE,message=FALSE}
+allex <- exonsBy(txdb, "gene")
+mygene <- allex[["672"]]
+mygene
+
 ```
 
 We are almost in a position to overlap our reads with the `GRanges` representation of our gene. First of all, we need the same trick from before to make sure the chromosome names are compatible

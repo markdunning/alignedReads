@@ -9,6 +9,8 @@ output: html_document
 
 Arguably the most-important tool you will learn about in this course is [IGV](https://www.broadinstitute.org/igv/). Whilst tools like R are very powerful and allow you to perform statistical analyses and test hypotheses, there is no substitute for ***looking at the data***. A trained-eye can quite quickly get a sense of the data quality before any computational analyses have been run. Futhermore, as the person requesting the sequencing, you probably know a lot about the biological context of the samples and what to expect. 
 
+Many of the exercises in the course will use IGV, so you will have plenty of time to practice.
+
 ## Introduction
 
 - IGV has been developed by the Broad Institute and is able to display most kinds of genomic data
@@ -46,10 +48,10 @@ Full set of slides from [MRC Clinical Sciences Centre](http://mrccsc.github.io/I
     
 ## Example
 
-Go to ***File*** -> ***Load from file*** and select `paired.bam`. Note that the file `paired.bam.bai` needs to be present in the same directory. However, you only need to click on the `.bam`
+Go to ***File*** -> ***Load from file*** and select `/home/participant/Course_Materials/paired.bam`. Note that the file `paired.bam.bai` needs to be present in the same directory. However, you only need to click on the `.bam`
 
 - Make sure that `hg19` is selected from the Genome drop-down menu (top left)
-- Type `chr1:9,939-10,224` in the Genome Navigation panel (2) to navigate to the start of chromosome 1; 
+- Type `chr1:9,939-10,224` in the Genome Navigation panel (***2***) to navigate to the start of chromosome 1; 
 
 ![](images/igv_start.png)
 
@@ -58,7 +60,7 @@ Go to ***File*** -> ***Load from file*** and select `paired.bam`. Note that the 
 - Each of the grey pointed rectangles represents a sequencing reads
     + whether the pointed bit is on the left or right indicates if the read is forward or reverse.
 - A coverage track is also generated
-- You should see the read that we were looking in the previous section by *hover*ing over the reads to display the information from the `.bam` file
+- You should see the read that we described in detail in the previous section by *hover*ing over the reads to display the information from the `.bam` file
 
 ```
 SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC:
@@ -99,6 +101,7 @@ It's worth noting that the display settings may be showing fewer reads than you 
 We also have some options on how to display the reads themselves, which we can acccess by right-clicking on the bam track
 
 Sorting alignments by:-
+
   - start
   - strand
   - base
