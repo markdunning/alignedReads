@@ -135,9 +135,8 @@ See also
 
 - https://broadinstitute.github.io/picard/explain-flags.html
 
-## Come in here, dear boy, have a CIGAR!
+## Have a CIGAR!
 
-(we are in the home of Pink Floyd after all....)
 
 ![](images/cigar-highlight.png)
 
