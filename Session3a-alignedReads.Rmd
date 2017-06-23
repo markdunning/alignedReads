@@ -182,6 +182,8 @@ More information about a particular command within samtools can be displayed by 
 Lets assume we have a file `sample.sam` which is the result of aligning reads using a tool such as `bwa`. Then the command to convert would be:-
 
 ```{}
+# We don't actually have a file called sample.sam. This is just an example of what the command would look like
+
 samtools view -bS sample.sam > sample.bam
 ```
 
@@ -238,26 +240,15 @@ samtools index
     + Allow efficient access
     + Producing a file `.bai` in the same directory
 
+- flagstat
+  + Collates quality control information from the *"flags"*
+
 ```{}
-samtools flagstat
+samtools flagstat paired.bam
 ```
 
-- Collates quality control information from the *"flags"*
 
-```
-$ samtools flagstat paired.bam
-12581680 + 0 in total (QC-passed reads + QC-failed reads)
-177715 + 0 duplicates
-12581680 + 0 mapped (100.00%:-nan%)
-12581680 + 0 paired in sequencing
-6291126 + 0 read1
-6290554 + 0 read2
-12581680 + 0 properly paired (100.00%:-nan%)
-12581680 + 0 with itself and mate mapped
-0 + 0 singletons (0.00%:-nan%)
-0 + 0 with mate mapped to a different chr
-0 + 0 with mate mapped to a different chr (mapQ>=5)
-```
+
 
 Typically, you will be dealing with `.bam` files that are
 
