@@ -146,10 +146,9 @@ plot(coverage(mygene.reads)[["17"]][7578042:7598063])
 
 ```{r}
 library(GenomicAlignments)
-pile
-param <- ApplyPileupsParam(which=mygene, what="seq")
-res <- pileup("/home/participant/Course_Materials/data/test/paired.bam"),param=param)
-
+res <- pileup(file="/home/participant/Course_Materials/data/test/paired.bam",
+              scanBamParam=ScanBamParam(which=mygene)
+)                                     
 ```
 
 
