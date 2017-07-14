@@ -204,6 +204,7 @@ So a `.bam` file is
 When viewing a `.sam` or `.bam`, we can choose to just view the *header* information
 
 ```{}
+cd /home/participant/Course_Materials/data/test
 samtools view -H paired.bam
 ```
 
@@ -292,10 +293,9 @@ autoplot(dupReads,aes(fill=pcrDuplicate)) + scale_fill_manual(values = c("black"
 Picard is another very-common tool in NGS analysis with lots of conversion, manipulation tools. If you are seriously considering getting into NGS analysis, it is worth getting to know.
 
 ```{}
-java -jar $PICARD -h
+man picard-tools
 ```
 
-Here, `$PICARD` refers to the location that `PICARD` is installed within the CRUK Docker
 
 # Summary
 
@@ -306,6 +306,84 @@ Here, `$PICARD` refers to the location that `PICARD` is installed within the CRU
     + the CIGAR
 - We can utilise this information in our analyses
 - The easiest way to actually *"see"* the reads is using a browser such as IGV, as we will see in the next section.
+
+# (Optional / Advanced)
+
+- Locating where each generated sequence came from in the genome
+- Outside the scope of this course
+- *Usually* perfomed automatically by a sequencing service
+- For most of what follows in the course, we will assume alignment has been performed and we are dealing with aligned data
+    + Popular aligners
+    + bwa http://bio-bwa.sourceforge.net/
+    + bowtie http://bowtie-bio.sourceforge.net/index.shtml
+    + novoalign http://www.novocraft.com/products/novoalign/
+    + stampy http://www.well.ox.ac.uk/project-stampy
+    + many, many more.....
+    
+    
+For completeness, we will show the commands used to aligned these two example fastq files.
+
+Note, that are assuming that you are still located in the `Day1` directory. 
+
+```{}
+cd /home/participant/Course_Materials/data/test
+```
+
+
+We have previously downloaded a reference genome from the 1000 genomes into a directory `ref_data` which is a sub-directory of `/home/participant/Course_Materials/`. To check what files are present in this directory we can use the `ls` command. 
+
+```{}
+ls ../../ref_data
+```
+    
+If the output of this command did ***not*** list `Homo_sapiens_assembly19.fasta`, we will have to retrieve it from the Broad Institue and un-compress
+
+```{}
+wget http://www.broadinstitute.org/ftp/pub/seq/references/Homo_sapiens_assembly19.fasta -P ../../ref_data/
+cd ../../ref_data
+
+```
+
+
+`bwa` can *index* the unzipped `.fasta` file. The option `-p` allows us how we want to name all the files that the indexing procedure creates. ***[N.B this step will take a long time]***. The result of which should be files `hg19.amb`, `hg19.ann`, `hg19.bwt`, `hg19.pac` and `hg19,sa`.
+
+```{}
+bwa index -p hg19 -a bwtsw Homo_sapiens_assembly19.fasta
+```
+
+
+The command to perform the alignment is `bwa aln` which has many options. We are going to stick with the default.
+```{}
+bwa aln
+```
+
+Each `.fastq` file needs to be aligned separately. The structure of the command is as follows
+
+- `bwa aln`
+  + the particular command in the `bwa` suite that we want to run; alignment in this case
+- `../ref_data/hg19` relative path to the reference files that we just created with the prefix that we defined 
+- ` sample.fq1` the `.fastq` file that we want to align
+- `> sample_1.sai` "redirecting" the output to a file. Without the `>`, the output would be printed directly to the screen
+
+
+```{}
+cd /home/participant/Course_Materials/data/test
+
+bwa aln ../../ref_data/hg19 sample.fq1 > sample_1.sai
+
+bwa aln ../../ref_data/hg19 sample.fq2 > sample_2.sai
+
+```
+
+The output from the `bwa aln` step is in a binary format that we cannot interpret directly. We need to make use of the `bwa sampe` command to create a human-readable format. We give it the files from the previous step and the fastq files.
+
+```{}
+bwa sampe ../../ref_data/hg19 sample_1.sai sample_2.sai sample.fq1 sample.fq2 > sample.sam 
+```
+
+
+The output is a `.sam` file that was the starting point for this section.
+
 
 # References:-
 
