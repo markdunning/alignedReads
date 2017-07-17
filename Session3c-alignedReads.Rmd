@@ -28,7 +28,7 @@ A package that can be used to parse a `.bam` file is `GenomicAlignments`. You sh
 
 ```{r message=FALSE}
 library(GenomicAlignments)
-mybam <- readGAlignments("/home/participant/Course_Materials/data/test/paired.bam")
+mybam <- readGAlignments("/data/test/paired.bam")
 mybam
 ```
 
@@ -54,7 +54,7 @@ The object we have created, `bam`, contains only a small amount of the informati
 
 
 ```{r}
-bam <- readGAlignments("/home/participant/Course_Materials/data/test/paired.bam",param=ScanBamParam(what=c("seq","mapq","flag","isize","qual")))
+bam <- readGAlignments("/data/test/paired.bam",param=ScanBamParam(what=c("seq","mapq","flag","isize","qual")))
 bam[1:3]
 ```
 
@@ -77,7 +77,7 @@ The flags should be valid values as [explained](https://broadinstitute.github.io
 table(meta$flag)
 ```
 
-Finally the mapping qualities are numeric quantities that will vary according to aligner
+Finally the mapping qualities are numeric quantities that will vary according to aligner. Mapping qualities of 0 are usually reserved for reads that map to multiple locations. Many calling algorithms will employ a filter on mapping quality; with values of 10 to 20 typically used to discard reads
 
 
 ```{r}
@@ -90,11 +90,12 @@ summary(meta$mapq)
 
 ### Exercise
 
+- Visualise the distribution of mapping qualities for this set of reads
+- How many reads would be removed at a cut-off of 10 or 20?
+- What would seem to be a reasonable cut-off to discard poor quality reads?
+- How many reads are classified as *PCR-duplicates*?
+    + HINT: Use the URL mentioned above to find out the explanation of flags observed in our data
 
-
-```{r}
-hist(meta$mapq)
-```
 
 
 ******
@@ -140,16 +141,116 @@ mygene.reads <- readGAlignments(file="/home/participant/Course_Materials/data/te
 mygene.reads
 ```
 
-```{r}
-plot(coverage(mygene.reads)[["17"]][7578042:7598063])
-```
+## Data Summaries
+
+We will now look into the couple of ways that we can summarise the data that will motivate some of the methods to come in the rest of the course.
+
+Firstly, we can compute how many bases are observed at each position using the `pileupAsGRanges` convenience function from the `biovizBase` package.
+
+- the output is a summary of base counts for each position, and an overall depth
+- the function is also able to do clever things such as excluding reads with low mapping quality or PCR duplicates
+
 
 ```{r}
-library(GenomicAlignments)
-res <- pileup(file="/home/participant/Course_Materials/data/test/paired.bam",
-              scanBamParam=ScanBamParam(which=mygene)
-)                                     
+library(biovizBase)
+baseSummary <- pileupAsGRanges("/data/test/paired.bam",regions = mygene)                         
+baseSummary
 ```
+
+- the output is a `GenomicRanges` object with *metadata* corresponding to the base counts and depth
+- as before we can extract the metadata with the `mcols` function
+
+```{r}
+meta <- mcols(baseSummary)
+
+```
+
+
+******
+******
+******
+
+### Exercise
+
+- Extract the depth values for each position, in order to plot the read coverage over this genomic region
+- Navigate to `chr17:7577851-7598063` in IGV
+    + does the plot roughly agree?
+- How many positions in this region have a depth of over 10?
+
+
+******
+******
+******
+
+Another piece of information that would be useful at this point is to determine what the reference base is at each position. This can be achieved using the one of the pre-built genome packages in Bioconductor
+
+- we will encounter several annotation packages during the course; the full list is given on the [Bioconductor website](http://bioconductor.org/packages/release/BiocViews.html#___AnnotationData)
+- you need to make sure to select the appropriate genome build
+    + and organism
+- these packages are installed in the usual fashion with `biocLite`
+    + they are much larger than standard Bioconductor software packages
+    + essentially they comprise a pre-built database
+
+```{r eval=FALSE}
+### Don't run this during the course
+source("https://bioconductor.org/biocLite.R")
+biocLite("BSgenome.Hsapiens.UCSC.hg19")
+```
+
+Some basic information about the package can be obtained by typing the object name
+
+```{r}
+library("BSgenome.Hsapiens.UCSC.hg19")
+hg19 <- BSgenome.Hsapiens.UCSC.hg19
+hg19
+
+```
+
+- there is a convenient `getSeq` function that can obtain the genome sequence for a given genomic region
+- however, there is a problem when we try and run this using the region we created previously
+    + can you work out why?
+
+```{r eval=FALSE}
+refSeq <- getSeq(hg19, mygene)
+refSeq
+```
+
+- a solution to this common headache is provided by the `renameSeqlevels` function
+
+```{r}
+refSeq <- getSeq(hg19, renameSeqlevels(mygene, c("17"="chr17")))
+refSeq
+```
+
+- we can determine which base was called at each position we can use the following R magic
+    + here `apply` is used to run the same function on each row of the data frame
+    + `which.max` returns the index of the highest value in each row
+    + `mycalls` is then a vector of "calls" for each base; the same length as the genomic region
+
+```{r}
+mycalls <- apply(meta[,c("A","T","C","G")], 1,
+      function(x) names(x)[which.max(x)]
+      )
+
+mycalls[1:5]
+baseSummary[1:5]
+```
+
+
+******
+******
+******
+
+### Exercise
+
+- How many positions have a "call" different from the reference genome?
+    HINT: what does the R code `mycalls == refSeq` return?
+- How many of these positions have a depth greater than 10?
+- Verify your result in IGV
+
+******
+******
+******
 
 
 # Summary

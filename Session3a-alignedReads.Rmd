@@ -204,7 +204,7 @@ So a `.bam` file is
 When viewing a `.sam` or `.bam`, we can choose to just view the *header* information
 
 ```{}
-cd /home/participant/Course_Materials/data/test
+cd /data/test
 samtools view -H paired.bam
 ```
 
@@ -323,24 +323,17 @@ man picard-tools
     
 For completeness, we will show the commands used to aligned these two example fastq files.
 
-Note, that are assuming that you are still located in the `Day1` directory. 
-
-```{}
-cd /home/participant/Course_Materials/data/test
-```
-
 
 We have previously downloaded a reference genome from the 1000 genomes into a directory `ref_data` which is a sub-directory of `/home/participant/Course_Materials/`. To check what files are present in this directory we can use the `ls` command. 
 
 ```{}
-ls ../../ref_data
+cd  /reference_data
 ```
     
 If the output of this command did ***not*** list `Homo_sapiens_assembly19.fasta`, we will have to retrieve it from the Broad Institue and un-compress
 
 ```{}
-wget http://www.broadinstitute.org/ftp/pub/seq/references/Homo_sapiens_assembly19.fasta -P ../../ref_data/
-cd ../../ref_data
+wget http://www.broadinstitute.org/ftp/pub/seq/references/Homo_sapiens_assembly19.fasta
 
 ```
 
@@ -367,18 +360,18 @@ Each `.fastq` file needs to be aligned separately. The structure of the command 
 
 
 ```{}
-cd /home/participant/Course_Materials/data/test
+cd /data/test
 
-bwa aln ../../ref_data/hg19 sample.fq1 > sample_1.sai
+bwa aln /reference_data/hg19 sample.fq1 > sample_1.sai
 
-bwa aln ../../ref_data/hg19 sample.fq2 > sample_2.sai
+bwa aln /reference_data/hg19 sample.fq2 > sample_2.sai
 
 ```
 
 The output from the `bwa aln` step is in a binary format that we cannot interpret directly. We need to make use of the `bwa sampe` command to create a human-readable format. We give it the files from the previous step and the fastq files.
 
 ```{}
-bwa sampe ../../ref_data/hg19 sample_1.sai sample_2.sai sample.fq1 sample.fq2 > sample.sam 
+bwa sampe /reference_data/hg19 sample_1.sai sample_2.sai sample.fq1 sample.fq2 > sample.sam 
 ```
 
 
