@@ -48,7 +48,7 @@ Full set of slides from [MRC Clinical Sciences Centre](http://mrccsc.github.io/I
     
 ## Example
 
-Go to ***File*** -> ***Load from file*** and select `/home/participant/Course_Materials/data/test/paired.bam`. Note that the file `paired.bam.bai` needs to be present in the same directory. However, you only need to click on the `.bam`
+Go to ***File*** -> ***Load from file*** and select `/data/test/paired.bam`. Note that the file `paired.bam.bai` needs to be present in the same directory. However, you only need to click on the `.bam`
 
 - Make sure that `hg19` is selected from the Genome drop-down menu (top left)
 - Type `chr1:9,939-10,224` in the Genome Navigation panel (***2***) to navigate to the start of chromosome 1; 
