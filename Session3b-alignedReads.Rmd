@@ -23,8 +23,10 @@ Many of the exercises in the course will use IGV, so you will have plenty of tim
 - To run IGV yourself you will need to agree to the license and [download the version for your OS](http://www.broadinstitute.org/software/igv/download)
 
 ## A quick tour of IGV
+For more details
 
-Full set of slides from [MRC Clinical Sciences Centre](http://mrccsc.github.io/IGV_course/igv.html#/)
+- Full set of slides from [MRC Clinical Sciences Centre](http://mrccsc.github.io/IGV_course/igv.html#/)
+- IGV tutorial from the [Griffth lab - WashU](https://github.com/griffithlab/rnaseq_tutorial/wiki/IGV-Tutorial)
 
 ![](images/IGV2.png)
 
@@ -62,20 +64,17 @@ Go to ***File*** -> ***Load from file*** and select `/data/test/paired.bam`. Not
 - A coverage track is also generated
 - You should see the read that we described in detail in the previous section by *hover*ing over the reads to display the information from the `.bam` file
 
-```
-SRR081708.237649	163	1	10003	6	1S67M	=	10041	105	GACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTGACCCTAACCCTGACCCTAACCCTAA	S=<====<<>=><?=?=?>==@??;?>@@@=??@@????@??@?>?@@<@>@'@=?=??=<=>?>?=Q	ZA:Z:<&;0;0;;308;68M;68><@;0;0;;27;;>MD:Z:5A11A5A11A5A11A13	RG:Z:SRR081708	NM:i:6	OQ:Z:GEGFFFEGGGDGDGGGDGA?DCDD:GGGDGDCFGFDDFFFCCCBEBFDABDD-D:EEEE=D=DDDDC:
 
-```
 ![](images/read-select.png)
 
 
-- Why does the read have orange rectangles inside it?
-    + zoom-in to see why
+- What do the coloured rectangles inside the read represent?
+    + zoom-in to the base resolution
     + zoom using the `+` symbol in the to-right corner
+    + perhaps right-click on the sequencing data track and un-tick `Shade base by quality`
 
-- You can right-click on our read of interest and select "Go to Mate".
-    + this should cause the paired-read to be highlighted on the screen
-    + notice how it points in the other direction
+- You can also right-click on a read of interest and select "Go to Mate".
+
 
 The view in IGV is not static and we can scroll-along the genome by holding-down the left mouse in the data panel and dragging left and right
 
@@ -96,8 +95,6 @@ IGV allows us to configure many aspects of the data display
 
 It's worth noting that the display settings may be showing fewer reads than you have (*downsampling*) in order to conserve memory. Also, some QC-fail or PCR duplicates may be filtered.
 
-![](images/track-display.png)
-
 We also have some options on how to display the reads themselves, which we can acccess by right-clicking on the bam track
 
 Sorting alignments by:-
@@ -114,4 +111,37 @@ The reads themselves can also be coloured according to
   - read strand
   - sample
 
-We will re-visit these options later when we come to examine particular variant calls
+Experiment with the various settings by right clicking the read alignment track and toggling the options. Think about which would be best for specific tasks (e.g. quality control, SNP calling, CNV finding). We will re-visit these options later when we come to examine particular variant calls
+
+## Additional data tracks
+
+Additional data tracks are also available on the IGV server. These include useful genome annotation tracks, such as:-
+
+- GC percentage
+- CpG islands
+- Repeat regions
+- dbSNP calls
+
+You can try this now:-
+
+`File` > `Load from Server...`
+
+## Bookmarks and screenshots
+
+It can be really useful to bookmark particular regions of interest that you have identified, in case you want to go back to them after some time. If you want to bookmark the region currently being displayed, click `Regions` > `Region Navigator`. You will then have the option to `Add` that region as a bookmark
+
+
+- Go to BRCA1
+- `Region` > `Region Navigator`
+- Click `Add`
+- Type a description by clicking in the `Description` box
+- Now navigate elsewhere; say `BRCA2` if you can't think of anywhere
+- `Region` > `Region Navigator` now should have `BRCA1` listed as a region. Click `View` to go back to it
+
+There are a couple of neat features associated with saved regions, which you can access by right-clicked on the red rectangle that appears. We can copy the genome sequence to the clipboard and also BLAT the sequence
+
+![](images/region-features.png)
+
+*N.B.* There is also a `Define a region of interest button` (5th button on right from the genome location bar) that will allow you to define the start and end of the region
+
+Screenshots can be taken at any point with the `File` > `Save Image` option. The screenshot is saved as a `png` file. 

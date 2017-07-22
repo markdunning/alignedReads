@@ -296,6 +296,11 @@ Picard is another very-common tool in NGS analysis with lots of conversion, mani
 man picard-tools
 ```
 
+```{}
+picard-tools MarkDuplicates
+## If you have time, see how you would remove mark duplicates for the file paired.bam
+```
+
 
 # Summary
 
