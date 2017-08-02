@@ -217,7 +217,7 @@ samtools view paired.bam | head
 Alternative, we can print the reads within a specific region. There are also options to print reads with particular *flags*.
 
 ```{}
-samtools view 1:1-100000 paired.bam
+samtools view paired.bam 1:1-100000
 ```
 
 ### Other useful samtools commands
